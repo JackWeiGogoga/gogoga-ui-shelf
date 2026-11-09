@@ -1,6 +1,7 @@
 import { MarkdownRenderChild, Modal, Notice, setIcon, type App } from "obsidian";
 import { t } from "../i18n";
 import type { ComponentItem } from "../types";
+import { propChoices } from "../sources/util";
 import { buildSrcdoc } from "./build";
 
 type ThemeMode = "auto" | "light" | "dark";
@@ -25,6 +26,8 @@ export class PreviewBlock extends MarkdownRenderChild {
   private mode: ThemeMode = "auto";
   private frame: HTMLIFrameElement | null = null;
   private item: ComponentItem | null = null;
+  /** 用户在变体切换条上选的值（prop → 值），叠加在演示 props 上 */
+  private overrides: Record<string, string> = {};
 
   constructor(
     el: HTMLElement,
@@ -75,6 +78,7 @@ export class PreviewBlock extends MarkdownRenderChild {
     this.renderToolbar(el, this.item);
     const stage = el.createDiv({ cls: "ui-shelf-stage" });
     this.mount(stage);
+    this.renderVariants(el, this.item);
   }
 
   private renderToolbar(el: HTMLElement, item: ComponentItem): void {
@@ -114,6 +118,37 @@ export class PreviewBlock extends MarkdownRenderChild {
     button("external-link", t("preview.page"), () => window.open(item.page));
   }
 
+  /**
+   * 变体切换条（像官方 gallery 的 tab）：组件有 variant / size 这类固定取值的属性时，
+   * 在预览下面列出取值，点一下用新值重新渲染。预览渲染的是官方 demo 时 demo 自己定死了用法，不显示。
+   */
+  private renderVariants(el: HTMLElement, item: ComponentItem): void {
+    const p = item.preview;
+    if (p?.kind !== "react" || p.component) return;
+    const entry = p.files.find((f) => f.path === p.entry);
+    if (!entry) return;
+    const choices = propChoices(entry.code, p.exportName);
+    if (!choices.length) return;
+    const bar = el.createDiv({ cls: "ui-shelf-variants" });
+    for (const c of choices) {
+      const group = bar.createDiv({ cls: "ui-shelf-variant-group" });
+      if (choices.length > 1) group.createSpan({ cls: "ui-shelf-variant-label", text: c.prop });
+      const seg = group.createDiv({ cls: "ui-shelf-segmented" });
+      const current = () => this.overrides[c.prop] ?? (typeof p.props?.[c.prop] === "string" ? String(p.props[c.prop]) : c.value);
+      for (const opt of c.options) {
+        const b = seg.createEl("button", { text: opt, cls: "ui-shelf-segment" });
+        b.toggleClass("is-active", opt === current());
+        b.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.overrides[c.prop] = opt;
+          seg.querySelectorAll(".ui-shelf-segment").forEach((x) => x.toggleClass("is-active", x.textContent === opt));
+          this.remount();
+        });
+      }
+    }
+  }
+
   private remount(): void {
     const stage = this.containerEl.querySelector<HTMLElement>(".ui-shelf-stage");
     if (stage) this.mount(stage);
@@ -139,7 +174,11 @@ export class PreviewBlock extends MarkdownRenderChild {
     const background = this.mode === "auto" ? "transparent" : dark ? "#0b0b0c" : "#ffffff";
     stage.toggleClass("is-solid", this.mode !== "auto");
     try {
-      frame.srcdoc = buildSrcdoc(item.preview, { theme: dark ? "dark" : "light", background });
+      const spec =
+        item.preview.kind === "react" && Object.keys(this.overrides).length
+          ? { ...item.preview, props: { ...(item.preview.props ?? {}), ...this.overrides } }
+          : item.preview;
+      frame.srcdoc = buildSrcdoc(spec, { theme: dark ? "dark" : "light", background });
     } catch (e) {
       stage.empty();
       stage.createEl("pre", { cls: "ui-shelf-error", text: (e as Error).message });

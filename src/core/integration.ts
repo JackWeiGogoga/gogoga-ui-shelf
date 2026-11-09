@@ -2,7 +2,7 @@
  * 从组件源码推出 agent 接入时要知道的事：样式方案、npm 依赖、前置条件、文件清单、导出名、
  * props、最小用法示例。纯函数（不引 obsidian），smoke 里直接测。
  */
-import { propsInfo } from "../sources/util";
+import { propChoices, propsInfo, type PropChoice } from "../sources/util";
 import type { ComponentItem } from "../types";
 
 export type Styling = "tailwind-v4" | "tailwind" | "css-modules" | "css" | "none";
@@ -18,6 +18,8 @@ export interface Integration {
   exportName: string | null;
   propsRequired: string[];
   propsOptional: string[];
+  /** 有固定取值的属性（variant、size…）：取值和默认值 */
+  variants: PropChoice[];
   /** 最小用法示例（TSX 或 HTML） */
   usage: string;
 }
@@ -72,6 +74,7 @@ export function analyze(item: ComponentItem): Integration {
     exportName: null,
     propsRequired: [],
     propsOptional: [],
+    variants: [],
     usage: "",
   };
   if (!p) return base;
@@ -119,6 +122,7 @@ export function analyze(item: ComponentItem): Integration {
   const info = entry ? propsInfo(entry.code, compExport) : null;
   base.propsRequired = info?.required ?? [];
   base.propsOptional = info?.optional ?? [];
+  base.variants = entry ? propChoices(entry.code, compExport) : [];
 
   if (p.files.some((f) => /from\s+["']@\/registry\//.test(f.code)))
     base.requires.push("Source imports use registry paths (`@/registry/…`); the shadcn CLI rewrites them — fix them by hand if you copy files from the local code folder");

@@ -39,7 +39,7 @@ The Obsidian CLI (\`obsidian\`) drives the plugin. Obsidian must be running.
 
 ## A. Find and use a component
 
-1. Read \`catalog.json\`. Each component has \`key\` (\`library/slug\`), \`tier\` (free / pro), \`frameworks\`, \`tags\`, \`styling\`, \`dependencies\`, \`requires\`, \`export\`, \`props_required\`, \`usage\`, \`install\`, \`code_dir\`, \`code_files\`, \`page\`.
+1. Read \`catalog.json\`. Each component has \`key\` (\`library/slug\`), \`tier\` (free / pro), \`frameworks\`, \`tags\`, \`styling\`, \`dependencies\`, \`requires\`, \`export\`, \`props_required\`, \`variants\` (props with a fixed set of values, e.g. \`variant\`: Drive / Dots / Orbit, with the default), \`usage\`, \`install\`, \`code_dir\`, \`code_files\`, \`page\`.
    Filter with jq, e.g. free React components for AI thinking states without Tailwind:
    \`\`\`bash
    jq '.components[] | select(.tier=="free" and (.tags|index("ui/scene/ai-thinking")) and (.styling|startswith("tailwind")|not)) | {key, styling, dependencies, usage}' "${abs(`${v.root}/catalog.json`)}"

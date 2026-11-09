@@ -100,6 +100,9 @@ export function componentZone(
     if (integ.exportName) {
       lines.push(`- **Export** \`${integ.exportName}\` · **Required props** ${code(integ.propsRequired)} · **Optional props** ${code(integ.propsOptional)}`);
     }
+    for (const v of integ.variants) {
+      lines.push(`- **\`${v.prop}\` options** ${v.options.map((o) => (o === v.value ? `\`${o}\` (default)` : `\`${o}\``)).join(" · ")}`);
+    }
     lines.push(`- **Local code** \`${codeDir}/\` — ${integ.files.map((f) => `\`${f}\``).join(", ")}`);
     if (item.install) lines.push("", "```bash", item.install, "```");
     if (integ.usage) lines.push("", item.preview.kind === "html" ? "```html" : "```tsx", integ.usage, "```");
@@ -305,6 +308,7 @@ export interface CatalogRow {
   exportName: string | null;
   propsRequired: string[];
   propsOptional: string[];
+  variants: { prop: string; options: string[]; value: string }[];
   usage: string;
   codeDir: string;
   codeFiles: string[];
@@ -372,6 +376,7 @@ export function catalogJson(rows: CatalogRow[], libraries: Record<string, unknow
           export: r.exportName,
           props_required: r.propsRequired,
           props_optional: r.propsOptional,
+          variants: Object.fromEntries(r.variants.map((v) => [v.prop, { options: v.options, default: v.value }])),
           usage: r.usage,
           install: r.install || null,
           code_dir: r.codeDir || null,

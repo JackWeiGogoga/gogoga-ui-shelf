@@ -106,3 +106,50 @@
   display: block;
   border: 0;
 }
+
+/* 变体切换条：预览下方一排分段按钮（像官方 gallery 的 tab） */
+.ui-shelf-variants {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.ui-shelf-variant-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ui-shelf-variant-label {
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.ui-shelf-segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-l);
+  background: var(--background-modifier-hover);
+}
+.ui-shelf-segment {
+  height: auto;
+  padding: 2px 10px;
+  border: 0;
+  border-radius: var(--radius-m);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  cursor: pointer;
+}
+.ui-shelf-segment:hover {
+  color: var(--text-normal);
+}
+.ui-shelf-segment.is-active {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  box-shadow: var(--shadow-s);
+}

@@ -10,7 +10,7 @@ import { balanceBraces, buildSrcdoc, compileModules, esmUrl, setEsmPeers, tailwi
 import { collect, PRESETS } from "../src/sources";
 import { unresolvedAliases } from "../src/sources/shadcn";
 import { manifestToLibrary, parseManifest, type SourceManifest } from "../src/sources/manifest";
-import { demoProps, pickExport, propsInfo } from "../src/sources/util";
+import { demoProps, pickExport, propChoices, propsInfo } from "../src/sources/util";
 import type { SyncContext } from "../src/types";
 
 const ctx: SyncContext = {
@@ -74,6 +74,24 @@ check(esmUrl("@react-three/fiber") === "https://esm.sh/@react-three/fiber?extern
 check(esmUrl("its-fine/sub") === "https://esm.sh/its-fine/sub?external=react&target=es2020", "esmUrl uses the package of a subpath");
 check(esmUrl("unknown-pkg") === "https://esm.sh/unknown-pkg?external=react,react-dom&target=es2020", "esmUrl default");
 setEsmPeers({});
+
+// 可切换属性：查找表 + 比较 + 默认值（LoadingState），cva variants + defaultVariants（Button）
+{
+  const loading = `const PATTERNS: Record<string, X> = {\n  Drive: { a: 1 },\n  Dots: { a: 2 },\n  Orbit: { a: 3 },\n};\nexport function LoadingState({ label, variant = "Drive", feed }: { label?: string; variant?: string; feed?: string }) {\n  const surfer = variant === "Surfer";\n  const p = PATTERNS[variant] ?? PATTERNS.Drive;\n}`;
+  const c = propChoices(loading, "LoadingState");
+  check(JSON.stringify(c) === JSON.stringify([{ prop: "variant", options: ["Drive", "Dots", "Orbit", "Surfer"], value: "Drive" }]), `propChoices loading: ${JSON.stringify(c)}`);
+  const button = `const buttonVariants = cva("x", {\n  variants: {\n    variant: {\n      primary: "a",\n      ghost: "b",\n    },\n    size: { sm: "c", md: "d" },\n  },\n  defaultVariants: { variant: "ghost", size: "md" },\n});\nexport function Button({ variant, size, className, ...props }: P) {}`;
+  const b = propChoices(button, "Button");
+  check(
+    JSON.stringify(b) === JSON.stringify([{ prop: "variant", options: ["primary", "ghost"], value: "ghost" }, { prop: "size", options: ["sm", "md"], value: "md" }]),
+    `propChoices button: ${JSON.stringify(b)}`,
+  );
+  check(propChoices("export function A({ variant }: { variant?: string }) {}", "A").length === 0, "propChoices ignores props without a value set");
+  check(
+    propChoices('export function A({ easing = "ease-in" }: P) { if (typeof easing === "function") {} if (easing === "linear") {} }', "A")[0]?.options.join(",") === "linear,ease-in",
+    "propChoices ignores typeof checks",
+  );
+}
 
 // 远程 registry 给的路径不能写到代码目录外面
 check(safeRelPath("../../etc/passwd") === "etc/passwd" && safeRelPath("/abs/x.ts") === "abs/x.ts", "safeRelPath strips .. and leading /");

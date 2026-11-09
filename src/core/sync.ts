@@ -20,7 +20,7 @@ import { analyze } from "./integration";
 import { autoTags, unknownTags, vocabularyMarkdown } from "./tags";
 
 /** 笔记格式版本：改了机器区 / frontmatter 的写法就加一，所有笔记会重写一次 */
-const FORMAT = 3;
+const FORMAT = 6;
 
 export interface SyncHost {
   app: App;
@@ -149,7 +149,7 @@ export async function syncLibrary(host: SyncHost, lib: LibraryConfig, ctx: SyncC
         fm.discovered = discovered;
         fm.tags = item.tags?.length ? item.tags : autoTags(item);
       });
-      host.items[key] = { discovered, hash: h, path };
+      host.items[key] = { ...state, discovered, hash: h, path };
       res.created++;
       res.createdSlugs.push(item.slug);
       continue;
@@ -170,7 +170,8 @@ export async function syncLibrary(host: SyncHost, lib: LibraryConfig, ctx: SyncC
         if (extra.some((t) => t.startsWith("ui/type/"))) fm.tags = [...new Set([...cur, ...extra])];
       }
     });
-    host.items[key] = { discovered: state?.discovered ?? (str(fm(app, f, "discovered")) || today()), hash: h, path: f.path };
+    // 保留状态里的其他字段（coverFor / coverFailedFor），不然每次笔记一更新封面就全部当成过期重截
+    host.items[key] = { ...state, discovered: state?.discovered ?? (str(fm(app, f, "discovered")) || today()), hash: h, path: f.path };
     res.updated++;
   }
 
@@ -282,6 +283,7 @@ export async function writeIndexes(host: SyncHost, libraries: LibraryConfig[]): 
       exportName: integ?.exportName ?? null,
       propsRequired: integ?.propsRequired ?? [],
       propsOptional: integ?.propsOptional ?? [],
+      variants: integ?.variants ?? [],
       usage: integ?.usage ?? "",
       codeDir: cached?.preview ? host.codeDir(libId, slugParts.join("/")) : "",
       codeFiles: integ?.files ?? [],

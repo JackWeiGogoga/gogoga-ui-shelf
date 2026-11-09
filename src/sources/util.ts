@@ -177,3 +177,108 @@ export function demoProps(code: string, exportName: string, title: string): Reco
   if (info.rest && !mentionsChildren && !voidTarget && props.children === undefined) props.children = title;
   return Object.keys(props).length ? props : undefined;
 }
+
+/** 一个可以切换的属性：预览下方显示一排按钮（像官方 gallery 的 tab），也写进接入信息 */
+export interface PropChoice {
+  prop: string;
+  options: string[];
+  /** 默认值（解构默认值 / cva defaultVariants / 第一个） */
+  value: string;
+}
+
+/** 从 `{ … }` 开头的位置取出第一层花括号里的文本 */
+function braceBody(code: string, open: number): string {
+  let depth = 0;
+  for (let i = open; i < code.length; i++) {
+    if (code[i] === "{") depth++;
+    else if (code[i] === "}" && --depth === 0) return code.slice(open + 1, i);
+  }
+  return "";
+}
+
+/** 对象字面量第一层的键（`Drive: …`、`"ghost": …`） */
+function objectKeys(body: string): string[] {
+  const keys: string[] = [];
+  let depth = 0;
+  let line = "";
+  const take = () => {
+    const m = /^\s*(?:\/\*[\s\S]*?\*\/\s*)*(["']?)([A-Za-z0-9_-]+)\1\s*:/.exec(line.replace(/\/\/.*$/gm, ""));
+    if (m) keys.push(m[2]);
+    line = "";
+  };
+  for (const ch of body) {
+    if ("{([".includes(ch)) depth++;
+    if ("})]".includes(ch)) depth--;
+    if (depth === 0 && ch === ",") take();
+    else if (depth >= 0) line += depth === 0 || "{([".includes(ch) ? ch : depth > 0 ? "" : ch;
+  }
+  take();
+  return keys;
+}
+
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const SKIP_PROPS = /^(children|className|style|id|key|ref|on[A-Z].*|labels?|text|content|title|name|placeholder|src|href)$/;
+
+/**
+ * 推出组件哪些属性有一组固定取值。来源：
+ *   类型里的联合类型 `variant?: "a" | "b"`；比较 `variant === "x"` / switch case；
+ *   查找表 `PATTERNS[variant]` 的键；cva 的 `variants: { variant: { … } }`。再加上默认值本身。
+ * 只返回推得出 2～12 个取值的属性。
+ */
+export function propChoices(code: string, exportName: string): PropChoice[] {
+  const info = propsInfo(code, exportName);
+  if (!info) return [];
+  const defaults = stringDefaults(code, exportName);
+  const cvaDefaults: Record<string, string> = {};
+  const dv = /defaultVariants\s*:\s*\{/.exec(code);
+  if (dv) {
+    const body = braceBody(code, dv.index + dv[0].length - 1);
+    for (const m of body.matchAll(/(\w+)\s*:\s*["']([^"']+)["']/g)) cvaDefaults[m[1]] = m[2];
+  }
+  const out: PropChoice[] = [];
+  for (const prop of [...info.required, ...info.optional]) {
+    if (SKIP_PROPS.test(prop)) continue;
+    const p = esc(prop);
+    const opts = new Set<string>();
+    // 联合类型
+    const union = new RegExp(`\\b${p}\\??\\s*:\\s*((?:["'][^"']+["']\\s*\\|?\\s*){2,})`).exec(code);
+    if (union) for (const m of union[1].matchAll(/["']([^"']+)["']/g)) opts.add(m[1]);
+    // switch (prop) { case "x": … }
+    const sw = new RegExp(`switch\\s*\\(\\s*${p}\\s*\\)\\s*\\{`).exec(code);
+    if (sw) for (const m of braceBody(code, sw.index + sw[0].length - 1).matchAll(/case\s+["']([^"']+)["']/g)) opts.add(m[1]);
+    // 查找表 TABLE[prop]
+    for (const m of code.matchAll(new RegExp(`\\b([A-Za-z_$][\\w$]*)\\s*\\[\\s*${p}\\s*\\]`, "g"))) {
+      const decl = new RegExp(`(?:const|let|var)\\s+${esc(m[1])}\\b[^=]*=\\s*\\{`).exec(code);
+      if (decl) for (const k of objectKeys(braceBody(code, decl.index + decl[0].length - 1))) opts.add(k);
+    }
+    // cva：variants: { prop: { a: …, b: … } }
+    const variants = /variants\s*:\s*\{/.exec(code);
+    if (variants) {
+      const vbody = braceBody(code, variants.index + variants[0].length - 1);
+      const inner = new RegExp(`(?:^|[\\s,{])${p}\\s*:\\s*\\{`).exec(vbody);
+      if (inner) for (const k of objectKeys(braceBody(vbody, inner.index + inner[0].length - 1))) opts.add(k);
+    }
+    // 比较放在最后：有序的定义（类型、查找表、cva）先排，判断里额外出现的值补在后面
+    // 比较
+    // `typeof prop === "string"` 是类型判断，不是取值，跳过
+    for (const m of code.matchAll(new RegExp(`(typeof\\s+)?\\b${p}\\s*[!=]==?\\s*["']([^"']+)["']`, "g"))) if (!m[1]) opts.add(m[2]);
+    for (const m of code.matchAll(new RegExp(`["']([^"']+)["']\\s*[!=]==?\\s*${p}\\b`, "g"))) opts.add(m[1]);
+    const value = defaults[prop] ?? cvaDefaults[prop];
+    if (value) opts.add(value);
+    const options = [...opts].filter((o) => o.length <= 40);
+    if (options.length >= 2 && options.length <= 12) out.push({ prop, options, value: value ?? options[0] });
+  }
+  return out;
+}
+
+/** 解构里的字符串默认值：`variant = "Drive"` */
+function stringDefaults(code: string, exportName: string): Record<string, string> {
+  const m =
+    new RegExp(`function\\s+${exportName}\\s*(?:<[^>]*>)?\\(\\s*\\{`).exec(code) ??
+    new RegExp(`(?:const|let)\\s+${exportName}\\s*(?::[^=]+)?=\\s*(?:React\\.)?(?:forwardRef|memo)?\\s*(?:<[^(]*>)?\\(?\\s*\\(\\s*\\{`).exec(code);
+  if (!m) return {};
+  const body = braceBody(code, m.index + m[0].length - 1);
+  const out: Record<string, string> = {};
+  for (const d of body.matchAll(/(\w+)\s*=\s*["']([^"']*)["']/g)) out[d[1]] = d[2];
+  return out;
+}

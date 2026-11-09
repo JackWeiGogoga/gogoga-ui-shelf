@@ -36,11 +36,39 @@ const safeStyle = (s: string) => s.replace(/<\/style/gi, "<\\/style");
 const attr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 /**
- * import map：esm.sh 的包会 `import "react"`，必须指向页面里内置的这份 React，否则两份 React、hooks 报错。
- * 每个内置模块是一个 data: 模块，从 window.__uiShelfBuiltin 取值导出；导出名是构建时算好的（builtinKeys）。
+ * 每个 npm 包依赖了 React 的哪几个（react / react-dom），由插件同步时从 npm registry 查好写进来。
+ *
+ * 为什么要按包区分：esm.sh 构建一个包时，它内部引用的依赖只带「那个依赖真正用到的」external 标记
+ * （@react-three/fiber 里引 three 的地址是 `/three@…?target=es2020`，不带 external）。我们直接请求
+ * three 时如果统一带上 `external=react,react-dom`，就会拿到另一份构建、页面上出现两份 three——
+ * fiber 认不出组件自己 new 的对象，报 "Cannot assign to read only property 'position'"（3d-globe）。
+ * 和 esm.sh 用同一套规则，同一个包就只有一个地址、一份实例。查不到的包按旧规则带上两个。
  */
-function importMap(): string {
+const esmPeers: Record<string, string[]> = {};
+export function setEsmPeers(map: Record<string, string[]>): void {
+  for (const k of Object.keys(esmPeers)) delete esmPeers[k];
+  Object.assign(esmPeers, map);
+}
+
+/** "@scope/pkg/sub" → "@scope/pkg"，"pkg/sub" → "pkg" */
+export function pkgOf(spec: string): string {
+  const parts = spec.split("/");
+  return spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
+}
+
+export function esmUrl(spec: string): string {
+  const external = [...(esmPeers[pkgOf(spec)] ?? ["react", "react-dom"])].sort();
+  return `https://esm.sh/${spec}?${external.length ? `external=${external.join(",")}&` : ""}target=es2020`;
+}
+
+/**
+ * import map：
+ * - React 等内置模块 → data: 模块，从 window.__uiShelfBuiltin 取值导出（导出名构建时算好，builtinKeys）
+ * - 组件直接用到的远程包 → esm.sh 地址（规则见 esmUrl，和 esm.sh 内部引用一致）
+ */
+function importMap(remote: string[]): string {
   const imports: Record<string, string> = {};
+  for (const spec of remote) imports[spec] = esmUrl(spec);
   for (const [name, keys] of Object.entries(builtinKeys)) {
     const src =
       `const m = window.__uiShelfBuiltin[${JSON.stringify(name)}];\n` +
@@ -67,7 +95,8 @@ function remoteScripts(remote: string[]): string {
   return remote
     .map((spec) => {
       const key = JSON.stringify(spec);
-      const url = `https://esm.sh/${spec}?external=react,react-dom&target=es2020`;
+      // 裸名字经 import map 解析到 esmUrl
+      const url = spec;
       const onerror = `(window.__uiShelfRemoteErrors = window.__uiShelfRemoteErrors || {})[${key}] = 'could not be loaded';`;
       return (
         `<script type="module" onerror="${attr(onerror)}">` +
@@ -154,7 +183,7 @@ export function buildSrcdoc(spec: PreviewSpec, o: BuildOptions): string {
   // 顺序要紧：import map 在任何 module 脚本之前；运行时（普通脚本）先跑、准备好内置模块和 __uiShelfStart；
   // module 脚本在解析完后按顺序执行，最后一个启动组件时远程依赖都已就绪
   return (
-    `<!doctype html><html ${htmlAttrs}><head>${head}${remote.length ? importMap() : ""}${styles}${tailwind}</head>` +
+    `<!doctype html><html ${htmlAttrs}><head>${head}${remote.length ? importMap(remote) : ""}${styles}${tailwind}</head>` +
     `<body><div id="root"></div>` +
     `<script type="application/json" id="ui-shelf-payload">${safeJson(payload)}</script>` +
     moduleScript(modules) +

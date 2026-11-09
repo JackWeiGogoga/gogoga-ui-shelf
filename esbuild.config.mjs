@@ -73,10 +73,10 @@ if (smoke) {
   // 脱离 Obsidian 验证采集链路（只用到 sources / tags / preview/build，不引 obsidian）
   await esbuild.build({
     ...common,
-    entryPoints: process.argv.includes("probe") ? ["scripts/probe-shadcn.ts"] : ["scripts/smoke.ts"],
+    entryPoints: process.argv.includes("probe") ? ["scripts/probe-shadcn.ts"] : process.argv.includes("dump") ? ["scripts/dump-srcdoc.ts"] : ["scripts/smoke.ts"],
     format: "esm",
     platform: "node",
-    outfile: process.argv.includes("probe") ? "build/probe.mjs" : "build/smoke.mjs",
+    outfile: process.argv.includes("probe") ? "build/probe.mjs" : process.argv.includes("dump") ? "build/dump.mjs" : "build/smoke.mjs",
     target: "es2022",
     external: builtinModules.map((m) => `node:${m}`),
   });

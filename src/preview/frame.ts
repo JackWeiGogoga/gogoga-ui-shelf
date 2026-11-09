@@ -21,9 +21,20 @@ export function report(): void {
   parent.postMessage({ uiShelf: "height", height: h }, "*");
 }
 
+/** 堆栈前几帧（去掉冗长的 esm.sh 查询参数），方便判断错误出在组件自己还是哪个依赖包 */
+function stackHint(e: Error): string {
+  const frames = (e.stack ?? "")
+    .split("\n")
+    .slice(1)
+    .map((l) => l.trim().replace(/\?[^)\s]*/g, "").replace(/^at\s+/, ""))
+    .filter(Boolean)
+    .slice(0, 3);
+  return frames.length ? `\n  at ${frames.join("\n  at ")}` : "";
+}
+
 /** 资源加载失败时 window error 事件给的是 Event，不是 Error：说清楚是哪个资源 */
 function describe(e: unknown): string {
-  if (e instanceof Error) return e.message;
+  if (e instanceof Error) return e.message + stackHint(e);
   if (e instanceof Event) {
     const t = e.target as (HTMLElement & { src?: string; href?: string }) | null;
     const url = t?.src || t?.href || "";

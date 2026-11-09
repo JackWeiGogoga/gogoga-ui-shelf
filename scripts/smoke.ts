@@ -6,7 +6,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { analyze, codeFiles, safeRelPath } from "../src/core/integration";
 import { autoTags, unknownTags } from "../src/core/tags";
-import { balanceBraces, buildSrcdoc, compileModules, tailwindSource } from "../src/preview/build";
+import { balanceBraces, buildSrcdoc, compileModules, esmUrl, setEsmPeers, tailwindSource } from "../src/preview/build";
 import { collect, PRESETS } from "../src/sources";
 import { unresolvedAliases } from "../src/sources/shadcn";
 import { manifestToLibrary, parseManifest, type SourceManifest } from "../src/sources/manifest";
@@ -66,6 +66,14 @@ check(
   ) === '["separator"]',
   "unresolvedAliases finds undeclared imports only",
 );
+
+// esm.sh 地址：只带包真正依赖的 react 包（和 esm.sh 内部引用一致，避免两份 three）；没查过的按默认
+setEsmPeers({ three: [], "@react-three/fiber": ["react", "react-dom"], "its-fine": ["react"] });
+check(esmUrl("three") === "https://esm.sh/three?target=es2020", `esmUrl three: ${esmUrl("three")}`);
+check(esmUrl("@react-three/fiber") === "https://esm.sh/@react-three/fiber?external=react,react-dom&target=es2020", "esmUrl fiber");
+check(esmUrl("its-fine/sub") === "https://esm.sh/its-fine/sub?external=react&target=es2020", "esmUrl uses the package of a subpath");
+check(esmUrl("unknown-pkg") === "https://esm.sh/unknown-pkg?external=react,react-dom&target=es2020", "esmUrl default");
+setEsmPeers({});
 
 // 远程 registry 给的路径不能写到代码目录外面
 check(safeRelPath("../../etc/passwd") === "etc/passwd" && safeRelPath("/abs/x.ts") === "abs/x.ts", "safeRelPath strips .. and leading /");

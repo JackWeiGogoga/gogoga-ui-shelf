@@ -8,6 +8,7 @@ import { pathsFor } from "./core/notes";
 import { makeContext, syncLibrary, writeIndexes, type SyncHost } from "./core/sync";
 import { setLocale, t } from "./i18n";
 import { PreviewBlock } from "./preview/block";
+import { compileModules, pkgOf, setEsmPeers } from "./preview/build";
 import { ShelfSettingTab } from "./settings-tab";
 import { PRESETS } from "./sources";
 import { manifestToLibrary, parseManifest } from "./sources/manifest";
@@ -21,6 +22,8 @@ export interface ShelfData {
   items: Record<string, ItemState>;
   lastSync: number;
   autoCovers: boolean;
+  /** npm 包 → 它依赖的 react / react-dom（决定 esm.sh 地址，见 preview/build.ts esmUrl） */
+  esmPeers: Record<string, string[]>;
 }
 
 const DEFAULTS: ShelfData = {
@@ -29,6 +32,7 @@ const DEFAULTS: ShelfData = {
   items: {},
   lastSync: 0,
   autoCovers: true,
+  esmPeers: {},
 };
 
 export default class UiShelfPlugin extends Plugin {
@@ -48,6 +52,8 @@ export default class UiShelfPlugin extends Plugin {
       const preset = PRESETS.find((x) => x.id === lib.id);
       if (preset?.profile) lib.profile = preset.profile;
     }
+
+    setEsmPeers(this.data.esmPeers);
 
     this.registerMarkdownCodeBlockProcessor("ui-preview", (source, el, ctx) => {
       ctx.addChild(new PreviewBlock(el, this, source));
@@ -239,6 +245,40 @@ export default class UiShelfPlugin extends Plugin {
     else await this.app.vault.create(path, text);
   }
 
+  /**
+   * 预览要从 esm.sh 加载的包：查 npm registry 记下它依赖 react / react-dom 中的哪几个（只查没记过的）。
+   * esm.sh 内部就按这个给依赖加 external，我们照做才能和它拿到同一份模块（详见 build.ts esmUrl）。
+   */
+  private async resolveEsmPeers(progress: (m: string) => void): Promise<void> {
+    const pkgs = new Set<string>();
+    for (const key of Object.keys(this.data.items)) {
+      const [lib, ...rest] = key.split("/");
+      const item = await this.readCache(lib, rest.join("/"));
+      if (item?.preview?.kind !== "react") continue;
+      try {
+        for (const spec of compileModules(item.preview.files).remote) pkgs.add(pkgOf(spec));
+      } catch {
+        /* 编译失败的组件预览时会报错，这里跳过 */
+      }
+    }
+    const todo = [...pkgs].filter((p) => !(p in this.data.esmPeers));
+    const ctx = makeContext(() => undefined);
+    for (const [i, pkg] of todo.entries()) {
+      progress(`npm ${i + 1}/${todo.length}`);
+      try {
+        const meta = await ctx.fetchJson<{ dependencies?: Record<string, string>; peerDependencies?: Record<string, string> }>(
+          `https://registry.npmjs.org/${pkg.replace("/", "%2F")}/latest`,
+        );
+        const deps = { ...(meta.dependencies ?? {}), ...(meta.peerDependencies ?? {}) };
+        this.data.esmPeers[pkg] = ["react", "react-dom"].filter((r) => r in deps);
+      } catch {
+        /* 查不到（私有包、网络）：不记，预览时按默认规则 */
+      }
+    }
+    setEsmPeers(this.data.esmPeers);
+    await this.save();
+  }
+
   /** 同步 / 检查的范围：全部、只来源文件、只最近改过的那个来源文件（agent 调试一个库时用）、或指定的库 */
   private async scopeLibraries(scope: Scope): Promise<{ libs: LibraryConfig[]; all: Awaited<ReturnType<UiShelfPlugin["allLibraries"]>> }> {
     const all = await this.allLibraries();
@@ -370,6 +410,7 @@ export default class UiShelfPlugin extends Plugin {
         report.libraries.push(entry);
         await this.save();
       }
+      await this.resolveEsmPeers((m) => notice.setMessage(t("notice.progress", { message: m })));
       const idx = await writeIndexes(this.host(), all.libs.filter((l) => l.enabled));
       await this.writeAgentFiles();
       report.untagged = idx.untagged;

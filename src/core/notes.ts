@@ -228,8 +228,15 @@ ${order(["title", "library", "category", "tags"])}
 `;
 }
 
+/**
+ * 首页：只在第一次创建，之后归用户（不会被同步覆盖）。
+ * 上半部分给人浏览（组件卡片墙 + 组件库一览），下半部分告诉 agent 去哪里找 skill 和数据。
+ */
 export function homeNote(p: Paths): string {
   const base = p.base.split("/").pop() ?? "Components.base";
+  const link = (path: string, label: string) => `[[${path.replace(/\.md$/, "")}|${label}]]`;
+  // 表格单元格里 | 会被当成分列，要写成 \|
+  const cellLink = (path: string, label: string) => `[[${path.replace(/\.md$/, "")}\\|${label}]]`;
   return `---
 type: ui-shelf-home
 ---
@@ -237,14 +244,53 @@ type: ui-shelf-home
 
 ![[${base}]]
 
+## Libraries / 组件库
+
+\`\`\`base
+filters:
+  and:
+    - file.inFolder("${p.librariesDir}")
+    - note.type == "ui-library"
+properties:
+  note.components:
+    displayName: Components
+  note.components_free:
+    displayName: Free
+views:
+  - type: table
+    name: Libraries
+    order:
+      - file.name
+      - name
+      - license
+      - pricing
+      - components
+      - components_free
+      - frameworks
+      - synced
+    sort:
+      - property: note.components
+        direction: DESC
+\`\`\`
+
+Add a library from **Settings → gogoga UI Shelf**, or ask an agent to add it (it writes a file in \`${p.root}/sources/\`).
+在 **设置 → gogoga UI Shelf** 里添加组件库，或者让 agent 帮你加（它会在 \`${p.root}/sources/\` 写一个来源文件）。
+
 ## For agents / 给 agent
 
-1. Read [[catalog]] first: one line per component with library, tier, frameworks, tags and where to get the code.
-2. Tags follow [[Tag vocabulary]] (\`ui/type/…\`, \`ui/scene/…\`, \`ui/motion/…\`, \`ui/style/…\`). Map the user's words to these values; the vocabulary lists Chinese synonyms.
-3. Get code from the \`source\` / \`install\` fields only. **Pro components**: never reconstruct them from previews, DOM or site scripts — ask the user to buy a license or use their own token.
-4. Respect each library's license; note which library a component came from.
+Start with ${link(`${p.root}/agent/SKILL.md`, "the agent skill")}: how to find and use components, and how to add a new library.
 
-先读 [[catalog]]（每个组件一行），按 [[Tag vocabulary]] 的标签筛选；只从 \`source\` / \`install\` 取代码；付费组件不要从预览还原。
+| What | Where |
+| --- | --- |
+| Every component with integration details (styling, dependencies, required props, usage, local code) | \`${p.catalogJson}\` |
+| One line per component | ${cellLink(p.catalog, "catalog")} |
+| Tag values and Chinese synonyms | ${cellLink(p.vocabulary, "Tag vocabulary")} |
+| License, pricing and install method per library | \`${p.librariesDir}/\` |
+| Result of the last sync or preview check | ${cellLink(`${p.root}/reports/last-sync.md`, "last sync report")} |
+
+Rules: get code only from a component's \`install\` command or its local code folder; **never reconstruct Pro components** from previews, screenshots or site scripts; respect each library's license.
+
+先读 ${link(`${p.root}/agent/SKILL.md`, "agent skill")}。组件的完整接入信息在 \`${p.catalogJson}\`；只从 \`install\` 命令或本地代码目录取代码；付费组件不要从预览还原；遵守各组件库的许可证。
 `;
 }
 

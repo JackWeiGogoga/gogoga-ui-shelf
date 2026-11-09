@@ -1,0 +1,32 @@
+# 打 tag（如 0.3.1，必须与 manifest.json 的 version 一致，不带 v）时自动构建，并把三个安装文件挂到 GitHub Release，供 BRAT 或手动安装。
+name: Release
+
+on:
+  push:
+    tags: ["*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          # 说明取自 CHANGELOG.zh-CN.md / CHANGELOG.md 里这个版本的条目；没写就失败，先写更新日志再发版
+          node scripts/release-notes.mjs "$tag" > release-notes.md
+          gh release create "$tag" --title "$tag" --notes-file release-notes.md dist/main.js manifest.json styles.css

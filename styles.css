@@ -1,0 +1,108 @@
+/* gogoga UI Shelf — 预览块 */
+.ui-shelf-preview {
+  margin: 0.5em 0 1em;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  background: var(--background-primary);
+}
+.ui-shelf-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  font-size: var(--font-ui-small);
+}
+.ui-shelf-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+}
+.ui-shelf-title > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-shelf-tier {
+  padding: 0 6px;
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-medium);
+  line-height: 18px;
+}
+.ui-shelf-tier.is-free {
+  color: var(--color-green);
+  background: rgba(var(--color-green-rgb), 0.12);
+}
+.ui-shelf-tier.is-pro {
+  color: var(--color-orange);
+  background: rgba(var(--color-orange-rgb), 0.12);
+}
+.ui-shelf-actions {
+  display: flex;
+  gap: 2px;
+}
+.ui-shelf-stage.is-solid {
+  background: transparent;
+}
+.ui-shelf-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color-scheme: normal;
+}
+.ui-shelf-note,
+.ui-shelf-message {
+  padding: 8px 12px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.ui-shelf-note {
+  border-top: 1px solid var(--background-modifier-border);
+}
+.ui-shelf-error {
+  margin: 8px;
+  color: var(--text-error);
+  white-space: pre-wrap;
+}
+.ui-shelf-url-input {
+  width: 100%;
+}
+.ui-shelf-code-modal .modal {
+  width: min(900px, 90vw);
+}
+.ui-shelf-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+}
+.ui-shelf-code-modal pre {
+  max-height: 360px;
+  overflow: auto;
+  font-size: var(--font-ui-smaller);
+}
+
+/* 后台生成封面的渲染台：必须在视口里（不可见的跨源 iframe 会被 Chrome 暂停渲染），透明且垫在界面下面 */
+.ui-shelf-cover-stage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+}
+.ui-shelf-cover-stage iframe {
+  display: block;
+  border: 0;
+}

@@ -1,0 +1,10 @@
+{
+  "id": "gogoga-ui-shelf",
+  "name": "gogoga UI Shelf",
+  "version": "0.1.0",
+  "minAppVersion": "1.8.7",
+  "description": "Collect UI component libraries, tag every component, and preview it live and sandboxed inside your notes.",
+  "author": "jackwei",
+  "authorUrl": "https://github.com/JackWeiGogoga",
+  "isDesktopOnly": false
+}

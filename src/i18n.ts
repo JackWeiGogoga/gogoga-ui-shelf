@@ -1,0 +1,196 @@
+/**
+ * 界面文案的中英文字典（只覆盖 UI）。
+ * 写进笔记的内容（frontmatter 键、标签、生成的目录/词表）属于数据，不走这里，
+ * 否则切换语言会让已有笔记的结构变化。
+ * en 是基准：zh 必须覆盖 en 的全部 key，缺一个就过不了类型检查。
+ */
+
+const en = {
+  "cmd.syncAll": "Sync all libraries",
+  "cmd.addLibrary": "Add a component library…",
+  "cmd.openHome": "Open UI Shelf home",
+  "cmd.rebuildCatalog": "Rebuild catalog and tag vocabulary",
+  "cmd.covers": "Generate missing covers",
+  "cmd.syncSources": "Sync libraries declared in source files",
+  "cmd.checkPreviews": "Check every preview and write the report",
+  "cmd.checkSources": "Check previews of libraries from source files",
+  "cmd.syncLatest": "Sync only the most recently changed source file",
+  "cmd.checkLatest": "Check previews of the most recently changed source file",
+  "cmd.cancel": "Cancel the running sync or check",
+  "notice.sourceErrors": "{n} problems in source files — see reports/last-sync.md",
+  "notice.checking": "UI Shelf: checking previews {done}/{total}",
+  "notice.checked": "Checked {checked} previews, {failed} failed — see reports/last-sync.md",
+  "cmd.coversAll": "Regenerate all generated covers",
+  "notice.covers": "UI Shelf: covers {done}/{total}",
+  "notice.coversDone": "Covers: {made} generated",
+  "notice.coversFailed": "{n} covers failed: {keys}",
+  "notice.coversNone": "Every component already has a cover",
+  "settings.autoCovers": "Generate covers after sync",
+  "settings.autoCoversDesc":
+    "Components without an official thumbnail are rendered in the background and saved as a webp under the folder's covers/ subfolder, so the card view has pictures",
+  "ribbon.sync": "Sync UI Shelf",
+
+  "notice.syncing": "UI Shelf: syncing…",
+  "notice.progress": "UI Shelf: {message}",
+  "notice.busy": "A sync is already running",
+  "notice.noLibraries": "No libraries yet. Add one in settings.",
+  "notice.libDone": "{name}: {created} new · {updated} updated · {total} total",
+  "notice.libFailed": "{name} failed: {error}",
+  "notice.done": "UI Shelf synced: {created} new components",
+  "notice.untagged": "{n} components have no type tag yet — see the “Untagged” view",
+  "notice.unknownTags": "Tags not in the vocabulary: {tags}",
+  "notice.catalogBuilt": "Catalog rebuilt",
+  "notice.copied": "Copied",
+
+  "add.title": "Add a component library",
+  "add.placeholder": "Paste a URL: site, registry.json or GitHub repo",
+  "add.detect": "Detect",
+  "add.detecting": "Detecting…",
+  "add.notFound": "Could not recognise this source. Supported: shadcn registry, /r index, transitions.dev",
+  "add.exists": "{name} is already added",
+  "add.added": "Added {name}. Syncing…",
+
+  "settings.folder": "Folder",
+  "settings.folderDesc": "Where library and component notes are written",
+  "settings.libraries": "Libraries",
+  "settings.add": "Add library",
+  "settings.addDesc": "Paste a URL; the source type is detected automatically",
+  "settings.presets": "Suggested sources",
+  "settings.presetsDesc": "Nothing is added by default. Pick the ones you want.",
+  "settings.addPreset": "Add",
+  "settings.remove": "Remove",
+  "settings.removeDesc": "Notes already written are kept",
+  "settings.syncNow": "Sync now",
+  "settings.lastSync": "Last synced {time}",
+  "settings.never": "Never synced",
+  "settings.sourceFiles": "Libraries from source files",
+  "settings.sourceFilesDesc": "Every <folder>/sources/<id>.source.json is picked up on sync. Agents add libraries this way; edit the file to change one.",
+  "settings.sourceFilesNone": "No source files yet",
+  "settings.agent": "Agents",
+  "settings.agentSkill": "Agent skill",
+  "settings.agentSkillDesc":
+    "How agents find, use and add component libraries. Written to <folder>/agent/SKILL.md on every sync; install it for Claude Code or copy it for other agents.",
+  "settings.agentCopy": "Copy",
+  "settings.agentInstall": "Install for Claude Code",
+  "settings.agentInstalled": "Installed: {path}",
+  "settings.network": "Network use",
+  "settings.networkDesc":
+    "Syncing fetches each library's public index. Previews run component code inside a sandboxed frame that cannot reach your vault; packages that are not bundled are loaded from esm.sh.",
+
+  "preview.theme": "Theme: {theme}",
+  "preview.themeAuto": "auto",
+  "preview.themeLight": "light",
+  "preview.themeDark": "dark",
+  "preview.replay": "Replay",
+  "preview.code": "Code",
+  "preview.page": "Open official page",
+  "preview.pro": "Pro",
+  "preview.free": "Free",
+  "preview.official": "Showing the official preview page (no source code available)",
+  "preview.missing": "Unknown component “{ref}”. Sync first, or check the library id.",
+  "preview.empty": "Write `library/slug` inside the block",
+  "preview.copyAll": "Copy all",
+  "preview.copy": "Copy",
+  "preview.install": "Install",
+};
+
+type Key = keyof typeof en;
+
+const zh: Record<Key, string> = {
+  "cmd.syncAll": "同步全部组件库",
+  "cmd.addLibrary": "添加组件库…",
+  "cmd.openHome": "打开组件库首页",
+  "cmd.rebuildCatalog": "重建目录和标签词表",
+  "cmd.covers": "生成缺失的封面",
+  "cmd.syncSources": "只同步来源文件声明的组件库",
+  "cmd.checkPreviews": "检查全部预览并写报告",
+  "cmd.checkSources": "只检查来源文件声明的组件库的预览",
+  "cmd.syncLatest": "只同步最近改过的来源文件",
+  "cmd.checkLatest": "只检查最近改过的来源文件的预览",
+  "cmd.cancel": "取消正在进行的同步或检查",
+  "notice.sourceErrors": "来源文件有 {n} 处问题，见 reports/last-sync.md",
+  "notice.checking": "UI Shelf：检查预览 {done}/{total}",
+  "notice.checked": "检查了 {checked} 个预览，{failed} 个出错，见 reports/last-sync.md",
+  "cmd.coversAll": "重新生成全部封面",
+  "notice.covers": "UI Shelf：封面 {done}/{total}",
+  "notice.coversDone": "封面：生成 {made} 张",
+  "notice.coversFailed": "{n} 张封面失败：{keys}",
+  "notice.coversNone": "所有组件都有封面了",
+  "settings.autoCovers": "同步后生成封面",
+  "settings.autoCoversDesc": "没有官方缩略图的组件，在后台渲染后截成 webp 存到目录下的 covers/，卡片墙就有图了",
+  "ribbon.sync": "同步组件库",
+
+  "notice.syncing": "UI Shelf：同步中…",
+  "notice.progress": "UI Shelf：{message}",
+  "notice.busy": "已有同步在进行",
+  "notice.noLibraries": "还没有组件库，先在设置里添加",
+  "notice.libDone": "{name}：新增 {created} · 更新 {updated} · 共 {total}",
+  "notice.libFailed": "{name} 同步失败：{error}",
+  "notice.done": "同步完成：新增 {created} 个组件",
+  "notice.untagged": "{n} 个组件还没有类型标签，见「待分类」视图",
+  "notice.unknownTags": "不在词表里的标签：{tags}",
+  "notice.catalogBuilt": "目录已重建",
+  "notice.copied": "已复制",
+
+  "add.title": "添加组件库",
+  "add.placeholder": "粘贴网址：官网、registry.json 或 GitHub 仓库",
+  "add.detect": "识别",
+  "add.detecting": "识别中…",
+  "add.notFound": "识别不出来源类型。目前支持：shadcn registry、/r 索引、transitions.dev",
+  "add.exists": "{name} 已经添加过了",
+  "add.added": "已添加 {name}，开始同步…",
+
+  "settings.folder": "目录",
+  "settings.folderDesc": "组件库和组件笔记写到这里",
+  "settings.libraries": "组件库",
+  "settings.add": "添加组件库",
+  "settings.addDesc": "粘贴网址，自动识别来源类型",
+  "settings.presets": "推荐来源",
+  "settings.presetsDesc": "默认什么都不加，需要哪个点哪个",
+  "settings.addPreset": "添加",
+  "settings.remove": "移除",
+  "settings.removeDesc": "已经写好的笔记会保留",
+  "settings.syncNow": "立即同步",
+  "settings.lastSync": "上次同步 {time}",
+  "settings.never": "还没同步过",
+  "settings.sourceFiles": "来源文件声明的组件库",
+  "settings.sourceFilesDesc": "同步时会读取 <目录>/sources/<id>.source.json。agent 就是这样添加组件库的；要改就改文件",
+  "settings.sourceFilesNone": "还没有来源文件",
+  "settings.agent": "Agent",
+  "settings.agentSkill": "Agent skill",
+  "settings.agentSkillDesc": "告诉 agent 怎么查找、使用和添加组件库。每次同步写到 <目录>/agent/SKILL.md；可以一键装到 Claude Code，或复制给其他 agent",
+  "settings.agentCopy": "复制",
+  "settings.agentInstall": "安装到 Claude Code",
+  "settings.agentInstalled": "已安装：{path}",
+  "settings.network": "网络访问说明",
+  "settings.networkDesc":
+    "同步时读取各组件库公开的索引。预览在沙箱 iframe 里运行组件代码，碰不到你的笔记库；插件没内置的 npm 包从 esm.sh 加载。",
+
+  "preview.theme": "主题：{theme}",
+  "preview.themeAuto": "跟随",
+  "preview.themeLight": "浅色",
+  "preview.themeDark": "深色",
+  "preview.replay": "重放",
+  "preview.code": "代码",
+  "preview.page": "打开官方页面",
+  "preview.pro": "付费",
+  "preview.free": "免费",
+  "preview.official": "显示的是官方预览页（拿不到源码）",
+  "preview.missing": "找不到组件「{ref}」。先同步，或检查库 id 是否写对",
+  "preview.empty": "在代码块里写 `库id/组件slug`",
+  "preview.copyAll": "全部复制",
+  "preview.copy": "复制",
+  "preview.install": "安装",
+};
+
+let current: "en" | "zh" = "en";
+
+export function setLocale(lang: string | null | undefined): void {
+  current = (lang ?? "").toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+export function t(key: Key, vars?: Record<string, string | number>): string {
+  const template = (current === "zh" ? zh : en)[key] ?? en[key];
+  if (!vars) return template;
+  return template.replace(/\{(\w+)\}/g, (whole, name: string) => (vars[name] === undefined ? whole : String(vars[name])));
+}

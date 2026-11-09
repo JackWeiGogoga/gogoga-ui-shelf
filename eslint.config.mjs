@@ -1,0 +1,15 @@
+// Same rule set the Obsidian community directory runs on submission.
+import { defineConfig } from "eslint/config";
+import obsidianmd from "eslint-plugin-obsidianmd";
+
+export default defineConfig([
+  { ignores: ["dist/", "build/", "node_modules/", "scripts/", "esbuild.config.mjs"] },
+  ...obsidianmd.configs.recommended,
+  {
+    languageOptions: {
+      parserOptions: {
+        projectService: { allowDefaultProject: ["eslint.config.*"] },
+      },
+    },
+  },
+]);

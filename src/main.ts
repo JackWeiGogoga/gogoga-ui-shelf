@@ -483,9 +483,9 @@ export default class UiShelfPlugin extends Plugin {
       if (!enabled.has(lib)) continue;
       const slug = rest.join("/");
       const item = await this.readCache(lib, slug);
-      if (item && needsCover(this.app, { root: this.data.rootFolder, lib, slug, path: state.path }, item, force)) jobs.push({ lib, slug, path: state.path, item });
+      if (item && needsCover(this.app, { root: this.data.rootFolder, lib, slug, path: state.path, coverFor: state.coverFor, coverFailedFor: state.coverFailedFor }, item, force)) jobs.push({ lib, slug, path: state.path, item });
     }
-    if (!jobs.length) return { made: 0, failed: [] };
+    if (!jobs.length) return { made: 0, madeFor: {}, failed: [] };
     const notice = new Notice(t("notice.covers", { done: 0, total: jobs.length }), 0);
     try {
       const r = await generateCovers(
@@ -498,6 +498,15 @@ export default class UiShelfPlugin extends Plugin {
         () => this.cancelRequested,
       );
       this.lastCoverFailures = r.failed;
+      for (const [key, h] of Object.entries(r.madeFor)) {
+        const st = this.data.items[key];
+        if (st) {
+          st.coverFor = h;
+          delete st.coverFailedFor;
+        }
+      }
+      for (const f of r.failed) if (this.data.items[f.key] && f.previewHash) this.data.items[f.key].coverFailedFor = f.previewHash;
+      await this.save();
       new Notice(t("notice.coversDone", { made: r.made }), 6000);
       if (r.failed.length) new Notice(t("notice.coversFailed", { n: r.failed.length, keys: r.failed.map((f) => f.key).join(", ") }), 10000);
       return r;

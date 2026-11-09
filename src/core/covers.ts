@@ -33,10 +33,27 @@ export function coverPath(root: string, lib: string, slug: string): string {
   return normalizePath(`${pathsFor(root).root}/covers/${safeName(lib)}/${safeName(slug)}.webp`);
 }
 
-/** 笔记还没有封面、又能本地渲染的组件；force 时连我们生成过的也重做 */
+/** 预览内容的指纹：封面是按哪一版预览截的 */
+export function previewHash(item: ComponentItem): string {
+  const s = JSON.stringify(item.preview ?? null);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16);
+}
+
+/**
+ * 要不要（重新）生成封面：
+ * - 笔记还没封面、又能本地渲染 → 要
+ * - 封面是我们生成的那张，但之后预览变了（修了 demo / props / 依赖）→ 要，旧图多半是坏的时候截的
+ * - force → 我们生成的都重做
+ * 来源自带的封面、用户自己换的图，一律不碰。
+ */
 export function needsCover(
   app: App,
-  at: { root: string; lib: string; slug: string; path: string },
+  at: { root: string; lib: string; slug: string; path: string; coverFor?: string; coverFailedFor?: string },
   item: ComponentItem | null,
   force: boolean,
 ): boolean {
@@ -45,9 +62,12 @@ export function needsCover(
   const file = app.vault.getAbstractFileByPath(at.path);
   if (!(file instanceof TFile)) return false;
   const cover: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.cover;
+  // 这一版预览已经截失败过：除非强制，不再重试（预览变了指纹就变，会再试）
+  if (!force && at.coverFailedFor === previewHash(item)) return false;
   if (cover == null || cover === "") return true;
-  // 重新生成只动我们自己生成的那张；用户换成自己的图就不碰
-  return force && cover === `[[${coverPath(at.root, at.lib, at.slug)}]]`;
+  const ours = cover === `[[${coverPath(at.root, at.lib, at.slug)}]]`;
+  if (!ours) return false;
+  return force || at.coverFor !== previewHash(item);
 }
 
 function dataUrlToBuffer(dataUrl: string): ArrayBuffer {
@@ -67,7 +87,8 @@ async function ensureFolder(app: App, path: string): Promise<void> {
 }
 
 /** 渲染一个组件并截图，返回 webp 的 data URL。 */
-function capture(item: ComponentItem): Promise<string> {
+function capture(item: ComponentItem, theme: "light" | "dark" = "light"): Promise<string> {
+  const bg = theme === "dark" ? "#0b0b0c" : "#ffffff";
   return new Promise((resolve, reject) => {
     if (!item.preview) {
       reject(new Error("no preview"));
@@ -106,12 +127,12 @@ function capture(item: ComponentItem): Promise<string> {
           return;
         }
         frame.contentWindow?.postMessage(
-          { uiShelf: "capture", width: WIDTH, height: Math.max(MAX_HEIGHT, height), background: "#ffffff" },
+          { uiShelf: "capture", width: WIDTH, height: Math.max(MAX_HEIGHT, height), background: bg },
           "*",
         );
       }, SETTLE_MS);
     });
-    frame.srcdoc = buildSrcdoc(item.preview, { theme: "light", background: "#ffffff", capture: true });
+    frame.srcdoc = buildSrcdoc(item.preview, { theme, background: bg, capture: true });
   });
 }
 
@@ -167,7 +188,9 @@ export function checkPreview(item: ComponentItem): Promise<string | null> {
 
 export interface CoverResult {
   made: number;
-  failed: { key: string; error: string }[];
+  /** 生成成功的组件 key → 当时的预览指纹 */
+  madeFor: Record<string, string>;
+  failed: { key: string; error: string; previewHash?: string }[];
 }
 
 export async function generateCovers(
@@ -177,13 +200,17 @@ export async function generateCovers(
   cancelled: () => boolean = () => false,
 ): Promise<CoverResult> {
   const { app } = host;
-  const res: CoverResult = { made: 0, failed: [] };
+  const res: CoverResult = { made: 0, madeFor: {}, failed: [] };
   for (const [i, job] of jobs.entries()) {
     if (cancelled()) break;
     const key = `${job.lib}/${job.slug}`;
     progress(i, jobs.length, key);
     try {
-      const data = await capture(job.item);
+      // 浅色截出来是空白：多半是给深色背景设计的组件（白色星星、发光效果），换深色再截一次
+      const data = await capture(job.item).catch((e: Error) => {
+        if (/blank/.test(e.message)) return capture(job.item, "dark");
+        throw e;
+      });
       const out = coverPath(host.root, job.lib, job.slug);
       await ensureFolder(app, out.split("/").slice(0, -1).join("/"));
       const existing = app.vault.getAbstractFileByPath(out);
@@ -196,8 +223,9 @@ export async function generateCovers(
         });
       }
       res.made++;
+      res.madeFor[key] = previewHash(job.item);
     } catch (e) {
-      res.failed.push({ key, error: (e as Error).message });
+      res.failed.push({ key, error: (e as Error).message, previewHash: previewHash(job.item) });
     }
   }
   progress(jobs.length, jobs.length, "");

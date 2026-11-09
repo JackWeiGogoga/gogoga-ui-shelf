@@ -86,6 +86,10 @@ function shoot(body: HTMLElement, d: { width?: number; height?: number; backgrou
       out
         .getContext("2d")
         ?.drawImage(full, box.x * PIXEL_RATIO, box.y * PIXEL_RATIO, out.width, out.height, 0, 0, out.width, out.height);
+      if (isBlank(out)) {
+        parent.postMessage({ uiShelf: "cover", error: "the screenshot came out blank (nothing visible was drawn)" }, "*");
+        return;
+      }
       parent.postMessage({ uiShelf: "cover", data: out.toDataURL("image/webp", 0.86) }, "*");
     })
     .catch((err: unknown) => parent.postMessage({ uiShelf: "cover", error: describeError(err) }, "*"));
@@ -99,4 +103,24 @@ function describeError(err: unknown): string {
     return `Failed to load ${t?.tagName?.toLowerCase() ?? "resource"}${t?.src ? ` ${t.src.slice(0, 120)}` : ""} while drawing the cover (often a cross-origin image)`;
   }
   return String(err);
+}
+
+/**
+ * 截出来基本是一种颜色 = 什么都没画上（组件当时是空的、内容在动画里藏着、或绘制失败）。
+ * 抽样看像素：和左上角颜色差得明显的点不到万分之五，就算空白。
+ * （阈值很低：一个输入框、一个小标签也只有几道细线和几个字，不能误判成空白）
+ */
+function isBlank(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext("2d");
+  if (!ctx || !canvas.width || !canvas.height) return true;
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const [r0, g0, b0] = [data[0], data[1], data[2]];
+  const step = 4 * 7; // 每 7 个像素取一个
+  let samples = 0;
+  let different = 0;
+  for (let i = 0; i < data.length; i += step) {
+    samples++;
+    if (Math.abs(data[i] - r0) + Math.abs(data[i + 1] - g0) + Math.abs(data[i + 2] - b0) > 24) different++;
+  }
+  return different / samples < 0.0005;
 }

@@ -30,7 +30,7 @@ export interface SyncReport {
   libraries: LibReport[];
   untagged: string[];
   unknownTags: string[];
-  covers?: { made: number; failed: { key: string; error: string }[] };
+  covers?: { made: number; failed: { key: string; error: string }[]; madeFor?: Record<string, string> };
   /** 运行中：当前阶段与进度 */
   progress?: { stage: string; done: number; total: number; current: string };
   /** 整次运行出错（或被取消） */
@@ -103,7 +103,7 @@ export function reportMarkdown(r: SyncReport): string {
     lines.push(
       "## Covers",
       "",
-      `Generated ${r.covers.made} new cover(s) for components that had none. Components whose source provides an image URL keep that URL as their cover; failures below simply stay without a cover.`,
+      `Generated ${r.covers.made} cover(s): components that had none, plus generated covers whose preview changed since. Components whose source provides an image URL keep that URL; failures below keep their previous cover (or none).`,
       "",
     );
     for (const f of r.covers.failed) lines.push(`- ❌ \`${f.key}\` — ${f.error}`);

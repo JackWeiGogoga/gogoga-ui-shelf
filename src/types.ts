@@ -126,4 +126,8 @@ export interface ItemState {
   hash: string;
   /** 笔记路径（用户移动过笔记时按这个找回） */
   path: string;
+  /** 生成的封面是按哪一版预览截的（previewHash）；预览变了就重新截 */
+  coverFor?: string;
+  /** 这一版预览截封面失败过（空白、跨域图片…）：预览没变就不再每次同步都重试 */
+  coverFailedFor?: string;
 }

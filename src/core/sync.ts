@@ -1,4 +1,4 @@
-import { getFrontMatterInfo, normalizePath, parseYaml, requestUrl, TFile, type App } from "obsidian";
+import { getFrontMatterInfo, normalizePath, parseYaml, requestUrl, TFile, type App, type RequestUrlParam, type RequestUrlResponse } from "obsidian";
 import { collect } from "../sources";
 import type { ComponentItem, ItemState, LibraryConfig, LibraryProfile, SyncContext } from "../types";
 import {
@@ -59,10 +59,32 @@ export function hash(s: string): string {
   return (h >>> 0).toString(16);
 }
 
+/**
+ * 网络请求：连接被断（net::ERR_…）、429 限流、5xx 时等一会儿重试，最多 4 次。
+ * 有的站点（beui.dev）连续请求一两百次后会断连接，不重试整个库就同步失败。
+ */
+async function request(params: RequestUrlParam): Promise<RequestUrlResponse> {
+  let last: unknown = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt) await new Promise((r) => window.setTimeout(r, 800 * 2 ** (attempt - 1)));
+    try {
+      const r = await requestUrl({ ...params, throw: false });
+      if (r.status === 429 || r.status >= 500) {
+        last = new Error(`HTTP ${r.status} ${params.url}`);
+        continue;
+      }
+      return r;
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last instanceof Error ? last : new Error(`request failed: ${params.url}`);
+}
+
 export function makeContext(progress: (m: string) => void): SyncContext {
   return {
     async fetchJson<T>(url: string): Promise<T> {
-      const r = await requestUrl({ url, headers: { Accept: "application/json" }, throw: false });
+      const r = await request({ url, headers: { Accept: "application/json" } });
       if (r.status >= 400) throw new Error(`HTTP ${r.status} ${url}`);
       try {
         return r.json as T;
@@ -71,7 +93,7 @@ export function makeContext(progress: (m: string) => void): SyncContext {
       }
     },
     async fetchText(url: string): Promise<string> {
-      const r = await requestUrl({ url, throw: false });
+      const r = await request({ url });
       if (r.status >= 400) throw new Error(`HTTP ${r.status} ${url}`);
       return r.text;
     },

@@ -74,6 +74,10 @@ export interface SourceManifest {
     itemUrl?: string;
     /** shadcn：只收这些条目类型，如 ["registry:ui"] */
     include?: string[];
+    /** shadcn：只收名字匹配这个正则的条目，如 "-react$" */
+    match?: string;
+    /** shadcn：列出各组件 .md 文档的页面（如 llms.txt），没有官方 demo 时取文档里 Usage 的代码当演示 */
+    docsIndex?: string;
   };
   index?: {
     url: string;
@@ -97,6 +101,8 @@ export interface SourceManifest {
   // ── 以下对三种模式都生效（在采集结果上覆盖）
   /** 组件页地址模板，如 "https://x.dev/docs/components/{slug}"（来源只给了首页时用） */
   pageTemplate?: string;
+  /** 按 slug 指定组件页地址（优先于 pageTemplate；组件页路径不统一时用） */
+  pages?: Record<string, string>;
   /** 封面图地址模板 */
   coverTemplate?: string;
   /** 按 slug 调整预览：换入口文件 / 导出名、给演示 props、或干脆不本地渲染（退回官方页面） */
@@ -140,6 +146,14 @@ export function validateManifest(m: unknown, file: string): string[] {
     const u = o.use as Record<string, unknown>;
     if (!BUILTIN_KINDS.includes(String(u.kind))) err(`"use.kind" must be one of ${BUILTIN_KINDS.join(", ")}`);
     if (typeof u.url !== "string") err('"use.url" is required');
+    if (u.match != null) {
+      try {
+        if (typeof u.match !== "string") throw new Error("not a string");
+        new RegExp(u.match);
+      } catch {
+        err('"use.match" must be a valid regular expression, e.g. "-react$"');
+      }
+    }
   }
   if (o.index != null) {
     const ix = o.index as Record<string, unknown>;
@@ -169,8 +183,13 @@ export function validateManifest(m: unknown, file: string): string[] {
       });
   }
   if (o.profile != null && typeof o.profile !== "object") err('"profile" must be an object');
-  for (const k of ["previews", "tags", "categories"]) {
+  for (const k of ["previews", "tags", "categories", "pages"]) {
     if (o[k] != null && (typeof o[k] !== "object" || Array.isArray(o[k]))) err(`"${k}" must be an object keyed by component slug`);
+  }
+  if (o.pages && typeof o.pages === "object") {
+    for (const [slug, url] of Object.entries(o.pages as Record<string, unknown>)) {
+      if (typeof url !== "string" || !/^https?:\/\//.test(url)) err(`"pages.${slug}" must be an http(s) URL`);
+    }
   }
   if (o.tags && typeof o.tags === "object") {
     for (const [slug, tags] of Object.entries(o.tags as Record<string, unknown>)) {
@@ -427,7 +446,7 @@ export function manifestAdapter(builtin: Record<string, SourceAdapter>): SourceA
       if (!m) throw new Error(`${lib.url}: source file was not loaded`);
       const items = m.use
         ? await builtin[m.use.kind].collect(
-            { ...lib, kind: m.use.kind, url: m.use.url, options: { itemUrl: m.use.itemUrl, include: m.use.include } },
+            { ...lib, kind: m.use.kind, url: m.use.url, options: { itemUrl: m.use.itemUrl, include: m.use.include, match: m.use.match, docsIndex: m.use.docsIndex } },
             ctx,
           )
         : m.index
@@ -451,6 +470,8 @@ export function manifestAdapter(builtin: Record<string, SourceAdapter>): SourceA
 export function applyOverrides(m: SourceManifest, item: ComponentItem): ComponentItem {
   const it = { ...item };
   if (m.pageTemplate && (!it.page || it.page === m.homepage)) it.page = fill(m.pageTemplate, it.slug);
+  const page = m.pages?.[it.slug];
+  if (page) it.page = page;
   if (m.coverTemplate && !it.cover) it.cover = fill(m.coverTemplate, it.slug);
   const cats = m.categories?.[it.slug];
   if (cats?.length) it.categories = cats;

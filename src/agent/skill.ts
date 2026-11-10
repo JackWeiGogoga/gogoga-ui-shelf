@@ -59,7 +59,8 @@ The \`sources/\` folder is created by the plugin on its first sync; create it yo
 - \`/r/registry.json\` or \`/registry.json\` → shadcn registry (\`{ "items": [...] }\`) → mode \`use\` with kind \`shadcn\`. What the adapter does for you:
   - finds each item's JSON next to the index, under \`r/\` or under \`registry/\` (or set \`use.itemUrl\`, e.g. \`"https://x.dev/registry/{name}.json"\`);
   - items that answer 401/403 are recorded as **pro** (metadata only) — so a registry that mixes free and paid items is fine in \`use\` mode;
-  - only \`registry:ui\`, \`registry:component\`, \`registry:block\` become components (narrow with \`use.include\`, e.g. \`["registry:ui"]\`);
+  - only \`registry:ui\`, \`registry:component\`, \`registry:block\` become components (narrow with \`use.include\`, e.g. \`["registry:ui"]\`, and/or \`use.match\`, a regex on the item name — e.g. \`"-react$"\` when a library publishes one item per framework);
+  - no \`<name>-demo\` items but each component has a Markdown doc with a Usage example? set \`use.docsIndex\` to a page that links every \`…/<name>.md\` (often \`llms.txt\`) and the Usage code block becomes the preview;
   - \`<name>-demo\` is fetched and rendered as the live preview when it exists (listed in the index or not); \`cssVars\` / \`css\` (keyframes, theme variables) are kept; undeclared imports such as \`@/components/ui/button\` are fetched from the registry or shadcn's official one.
 - \`/r\` returning \`{ "components": [...] }\` with \`/r/{slug}\` details → \`use\` with kind \`r-index\`.
 - \`/llms.txt\` — often documents a JSON API; read it for endpoints and licensing rules.
@@ -127,6 +128,7 @@ The \`sources/\` folder is created by the plugin on its first sync; create it yo
 
   // ── optional, valid with ALL three modes (applied on top of what the mode collected) ──
   // "pageTemplate": "https://magicui.design/docs/components/{slug}",   // when components only got the homepage
+  // "pages": { "card-cover-flow": "https://x.dev/carousels/card-cover-flow" },   // per-slug page when one template doesn't fit all
   // "coverTemplate": "https://…/{slug}.png",
   // "categories": { "marquee": ["Animation"] },
   // "tags": { "marquee": ["ui/type/list", "ui/motion/stream"] },       // vocabulary values only

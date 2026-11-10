@@ -116,8 +116,72 @@ function unwrapGlobal(css: string): string {
 
 /** Tailwind 浏览器版只认 `@import "tailwindcss"`，其余包里的 import 解析不了，拆掉。 */
 export function tailwindSource(css: string): string {
-  return balanceBraces(css.replace(/^\s*@import\s+["'](?!tailwindcss["'])[^"']+["'][^;]*;\s*$/gm, ""));
+  const clean = balanceBraces(css.replace(/^\s*@import\s+["'](?!tailwindcss["'])[^"']+["'][^;]*;\s*$/gm, ""));
+  // shadcn 系组件默认项目里有一套主题色（bg-background、text-muted-foreground…）。组件库自己的 cssVars 写在后面，会覆盖这里
+  const m = /@import\s+["']tailwindcss["'][^;]*;/.exec(clean);
+  return m ? `${clean.slice(0, m.index + m[0].length)}\n${SHADCN_THEME}\n${clean.slice(m.index + m[0].length)}` : `${SHADCN_THEME}\n${clean}`;
 }
+
+/** shadcn/ui 默认（neutral）主题：浅色、深色两套变量，加上 Tailwind v4 的 @theme 映射 */
+const SHADCN_THEME = `
+@custom-variant dark (&:is(.dark *));
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0); --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0); --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0); --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0); --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0); --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0); --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0); --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0); --input: oklch(0.922 0 0); --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116); --chart-2: oklch(0.6 0.118 184.704); --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429); --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0); --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0); --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0); --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0); --sidebar-ring: oklch(0.708 0 0);
+}
+.dark {
+  --background: oklch(0.145 0 0); --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0); --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0); --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0); --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0); --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0); --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0); --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%); --input: oklch(1 0 0 / 15%); --ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.205 0 0); --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376); --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0); --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%); --sidebar-ring: oklch(0.556 0 0);
+}
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px); --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius); --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background); --color-foreground: var(--foreground);
+  --color-card: var(--card); --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1); --color-chart-2: var(--chart-2); --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4); --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar); --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary); --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent); --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border); --color-sidebar-ring: var(--sidebar-ring);
+}
+@layer base {
+  * { border-color: var(--color-border); outline-color: color-mix(in oklab, var(--color-ring) 50%, transparent); }
+  body { color: var(--color-foreground); }
+}
+`;
 
 const BASE_CSS = (o: BuildOptions) => `
   html, body { margin: 0; background: ${o.background}; }
@@ -159,8 +223,10 @@ export function compileModules(files: { path: string; code: string }[]): { modul
 /** 生成整页 srcdoc。 */
 export function buildSrcdoc(spec: PreviewSpec, o: BuildOptions): string {
   const htmlAttrs = `data-theme="${o.theme}" class="${o.theme === "dark" ? "dark" : ""}" style="color-scheme:${o.theme}"`;
+  // 有些组件直接读 process.env（Next.js 习惯），浏览器里没有
   const head =
-    `<meta charset="utf-8"><style>${BASE_CSS(o)}</style>` + (o.capture ? `<script>${safeScript(captureJs)}</script>` : "");
+    `<meta charset="utf-8"><style>${BASE_CSS(o)}</style><script>window.process = window.process || { env: { NODE_ENV: "production" } };</script>` +
+    (o.capture ? `<script>${safeScript(captureJs)}</script>` : "");
 
   if (spec.kind === "html") {
     return (

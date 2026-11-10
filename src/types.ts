@@ -48,6 +48,13 @@ export interface LibraryConfig {
     itemUrl?: string;
     /** 只收这些 registry 条目类型，默认 registry:ui / registry:component / registry:block */
     include?: string[];
+    /** 只收名字匹配这个正则的条目（如 "-react$"：一个效果按框架拆成多个条目时只留 React 版） */
+    match?: string;
+    /**
+     * 列出每个组件 Markdown 文档的页面（如 llms.txt）。registry 没有 `<name>-demo` 时，
+     * 从 `…/<name>.md` 的 Usage 代码块里取用法示例当演示
+     */
+    docsIndex?: string;
   };
 }
 

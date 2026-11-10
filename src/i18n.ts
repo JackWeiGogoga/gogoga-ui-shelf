@@ -27,7 +27,7 @@ const en = {
   "notice.coversNone": "Every component already has a cover",
   "settings.autoCovers": "Generate covers after sync",
   "settings.autoCoversDesc":
-    "Components without an official thumbnail are rendered in the background and saved as a webp under the folder's covers/ subfolder, so the card view has pictures",
+    "Components without an official thumbnail are rendered in the background and saved as a webp under the folder's covers/ subfolder. Only the Bases card wall needs these — the gallery shows live previews — so it is off by default and slows syncs down a lot",
   "ribbon.sync": "Sync UI Shelf",
 
   "notice.syncing": "UI Shelf: syncing…",
@@ -130,7 +130,7 @@ const zh: Record<Key, string> = {
   "notice.coversFailed": "{n} 张封面失败：{keys}",
   "notice.coversNone": "所有组件都有封面了",
   "settings.autoCovers": "同步后生成封面",
-  "settings.autoCoversDesc": "没有官方缩略图的组件，在后台渲染后截成 webp 存到目录下的 covers/，卡片墙就有图了",
+  "settings.autoCoversDesc": "没有官方缩略图的组件，在后台渲染后截成 webp 存到目录下的 covers/。只有 Bases 卡片墙用得上（画廊直接显示实时效果），会让同步慢很多，默认关闭",
   "ribbon.sync": "同步组件库",
 
   "notice.syncing": "UI Shelf：同步中…",

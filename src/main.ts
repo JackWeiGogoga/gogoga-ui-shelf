@@ -32,7 +32,7 @@ const DEFAULTS: ShelfData = {
   libraries: [],
   items: {},
   lastSync: 0,
-  autoCovers: true,
+  autoCovers: false,
   esmPeers: {},
 };
 

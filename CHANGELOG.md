@@ -12,6 +12,8 @@ First version, not yet released.
 - Live previews in notes: React / Tailwind / CSS Modules / HTML components run in a sandboxed frame, with light / dark, replay and code view; official demos are used when a library ships them. Pro components show the official page and are never fetched.
 - Hierarchical tags (`ui/type`, `ui/scene`, `ui/motion`, `ui/style`) with a vocabulary note that lists Chinese synonyms; rules tag new components once and never overwrite your edits.
 - Component gallery: a single scrolling page that runs every component live, with search (Chinese tag names too), library / type / free filters, a light / dark switch for the whole page and variant tabs under each preview; previews load as they scroll into view. The gallery is a `.uishelf` file that keeps its filters and theme, so it can be pinned or duplicated.
-- Bases card wall with covers: official thumbnails, or screenshots generated in the background.
+- Bases card wall with covers: official thumbnails, or screenshots generated on demand (automatic screenshots after sync are off by default; the gallery does not need them).
+- Source files can filter registry items by name (`use.match`), take preview demos from per-component Markdown docs (`use.docsIndex`), and set per-component page URLs (`pages`). Network requests are retried when a site drops the connection or rate-limits.
+- Previews of shadcn-style components get the default shadcn theme colors, so `bg-background`, `text-muted-foreground` and friends render even when a registry does not ship them.
 - For agents: `catalog.json`, library profiles (license, pricing, install), a bundled agent skill (install it for Claude Code from settings), a sync report with progress and fix-it hints, and commands to sync or check only the latest source file, check every preview, and cancel a run.
 - English and Simplified Chinese interface; settings appear in Obsidian's settings search on 1.13+.

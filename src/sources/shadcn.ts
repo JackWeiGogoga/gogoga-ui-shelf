@@ -1,7 +1,7 @@
 import { joinTailwindCss } from "../core/css";
 import type { ComponentItem, LibraryConfig, SourceAdapter, SourceFile, SyncContext } from "../types";
 import { registryCss, type RegistryCss } from "./registry-css";
-import { demoProps, dirOf, pickExport } from "./util";
+import { componentExports, demoProps, dirOf, pickExport } from "./util";
 
 /**
  * shadcn registry 型来源：
@@ -100,8 +100,10 @@ export const shadcnAdapter: SourceAdapter = {
     };
 
     const include = new Set(lib.options?.include?.length ? lib.options.include : PREVIEWABLE);
-    const items = (index.items ?? []).filter((i) => include.has(i.type ?? ""));
+    const match = lib.options?.match ? new RegExp(lib.options.match) : null;
+    const items = (index.items ?? []).filter((i) => include.has(i.type ?? "") && (!match || match.test(i.name)));
     if (items[0]) await probe(items[0].name);
+    const docs = lib.options?.docsIndex ? await docLinks(lib.options.docsIndex, ctx) : new Map<string, string>();
     const out: ComponentItem[] = [];
     for (const [n, entry] of items.entries()) {
       ctx.progress(`${lib.name} ${n + 1}/${items.length}`);
@@ -169,6 +171,20 @@ export const shadcnAdapter: SourceAdapter = {
         }
       }
 
+      // 还没有 demo：组件文档（Markdown）的 Usage 里通常有一段完整示例
+      let docDemo: { path: string; code: string } | null = null;
+      if (!demo && docs.has(entry.name)) {
+        try {
+          const code = usageBlock(await ctx.fetchText(docs.get(entry.name) ?? ""));
+          if (code && componentExports(code).length) {
+            docDemo = { path: `docs-demo/${entry.name}.tsx`, code };
+            files.push(docDemo);
+          }
+        } catch {
+          /* 文档取不到就用组件本身 */
+        }
+      }
+
       // 作者没声明的依赖：源码里 import 了 `@/components/ui/x`、`@/registry/…/x`，本地又找不到 → 按名字补取
       for (let round = 0; round < 3; round++) {
         const missing = unresolvedAliases(files);
@@ -186,8 +202,13 @@ export const shadcnAdapter: SourceAdapter = {
 
       const own = (item.files ?? []).find((f) => /\.[jt]sx$/.test(f.path) && f.content);
       const exportName = own?.content ? pickExport(own.content, entry.name) : null;
-      const demoFile = demo?.files?.find((f) => /\.[jt]sx$/.test(f.path) && f.content);
-      const demoExport = demoFile?.content ? pickExport(demoFile.content, demoName) : null;
+      const registryDemo = demo?.files?.find((f) => /\.[jt]sx$/.test(f.path) && f.content);
+      const demoFile = registryDemo ? { path: registryDemo.path, content: registryDemo.content } : docDemo ? { path: docDemo.path, content: docDemo.code } : null;
+      const demoExport = registryDemo?.content
+        ? pickExport(registryDemo.content, demoName)
+        : docDemo
+          ? (componentExports(docDemo.code).pop() ?? null)
+          : null;
       const css = [...files.filter((f) => f.path.endsWith(".css")).map((f) => f.code), ...cssChunks];
       const code = files.filter((f) => !f.path.endsWith(".css"));
       const title = item.title ?? entry.title ?? item.name;
@@ -248,4 +269,23 @@ export function unresolvedAliases(files: SourceFile[]): string[] {
     }
   }
   return [...out];
+}
+
+/** 文档索引里所有 `…/<name>.md` 链接：名字 → 地址 */
+async function docLinks(url: string, ctx: SyncContext): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  try {
+    const text = await ctx.fetchText(url);
+    for (const m of text.matchAll(/https?:\/\/[^\s)"'<>]+\/([a-z0-9-]+)\.md\b/gi)) if (!out.has(m[1])) out.set(m[1], m[0]);
+  } catch {
+    /* 没有索引就不用文档示例 */
+  }
+  return out;
+}
+
+/** Markdown 里「Usage / Example」小节的第一个 tsx/jsx 代码块；没有这样的小节就取第一个 tsx 块 */
+export function usageBlock(md: string): string | null {
+  const block = (s: string) => /```(?:tsx|jsx)\s*\n([\s\S]*?)```/.exec(s)?.[1] ?? null;
+  const section = /^#{2,3}\s+(usage|example|examples|demo)\b[^\n]*\n([\s\S]*?)(?=^#{2}\s|(?![\s\S]))/im.exec(md);
+  return (section && block(section[2])) || block(md);
 }

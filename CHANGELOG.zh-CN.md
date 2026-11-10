@@ -13,7 +13,7 @@ gogoga UI Shelf 每个版本的主要变化都记在这里。格式参照 [Keep 
 - 层级标签（`ui/type`、`ui/scene`、`ui/motion`、`ui/style`）和带中文同义词的词表；规则只在新组件入库时打一次，不覆盖你的修改。
 - 组件画廊：一个页面往下滚就能看到所有组件的实时效果，支持搜索（中文类型名也能搜）、按库 / 类型 / 只看免费筛选、整页切换明暗，预览下方可切换变体；预览滚到附近才加载。画廊是一个 `.uishelf` 文件，会记住筛选和明暗，可以加快捷方式或复制多份。
 - Bases 卡片墙和封面：用官方缩略图，没有的可以按需截图生成（同步后自动截图默认关闭，画廊用不上）。
-- 来源文件可以按名字过滤 registry 条目（`use.match`）、从每个组件的 Markdown 文档里取演示（`use.docsIndex`）、按组件指定页面地址（`pages`）。站点断开连接或限流时，网络请求会自动重试。
+- 来源文件可以按名字过滤 registry 条目（`use.match`）、从每个组件的 Markdown 文档里取演示（`use.docsIndex`）、按组件指定页面地址（`pages`）、到仓库里补取 registry 没给的文件（`use.repo`）、使用仓库里每个组件的 demo 文件（`use.demoUrl`）。站点断开连接或限流时，网络请求会自动重试。
 - shadcn 系组件的预览自带 shadcn 默认主题色，registry 没给时 `bg-background`、`text-muted-foreground` 等也能正常显示。
 - 给 agent：`catalog.json`、组件库档案（许可证、价格、安装方式）、附带的 agent skill（可在设置里一键装到 Claude Code）、带进度和修法提示的同步报告，以及只同步 / 检查最近改过的来源文件、检查全部预览、取消运行的命令。
 - 英文和简体中文界面；在 Obsidian 1.13+ 的设置搜索里能搜到本插件的设置项。

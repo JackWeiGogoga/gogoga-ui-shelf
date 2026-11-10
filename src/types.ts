@@ -55,6 +55,10 @@ export interface LibraryConfig {
      * 从 `…/<name>.md` 的 Usage 代码块里取用法示例当演示
      */
     docsIndex?: string;
+    /** 仓库源码的根地址（如 GitHub raw 的 …/main/）：源码 import 的 `@/…` 文件 registry 没给时，按路径到这里补取 */
+    repo?: string;
+    /** 官方 demo 文件的地址模板（{name}），registry 里没有 `<name>-demo` 时用 */
+    demoUrl?: string;
   };
 }
 

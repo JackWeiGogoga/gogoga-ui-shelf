@@ -78,6 +78,10 @@ export interface SourceManifest {
     match?: string;
     /** shadcn：列出各组件 .md 文档的页面（如 llms.txt），没有官方 demo 时取文档里 Usage 的代码当演示 */
     docsIndex?: string;
+    /** shadcn：仓库源码根地址（GitHub raw …/main/），补取 registry 没给的 `@/…` 文件 */
+    repo?: string;
+    /** shadcn：官方 demo 文件地址模板，如 "…/main/app/docs/{name}/{name}-demo.tsx" */
+    demoUrl?: string;
   };
   index?: {
     url: string;
@@ -446,7 +450,7 @@ export function manifestAdapter(builtin: Record<string, SourceAdapter>): SourceA
       if (!m) throw new Error(`${lib.url}: source file was not loaded`);
       const items = m.use
         ? await builtin[m.use.kind].collect(
-            { ...lib, kind: m.use.kind, url: m.use.url, options: { itemUrl: m.use.itemUrl, include: m.use.include, match: m.use.match, docsIndex: m.use.docsIndex } },
+            { ...lib, kind: m.use.kind, url: m.use.url, options: { itemUrl: m.use.itemUrl, include: m.use.include, match: m.use.match, docsIndex: m.use.docsIndex, repo: m.use.repo, demoUrl: m.use.demoUrl } },
             ctx,
           )
         : m.index

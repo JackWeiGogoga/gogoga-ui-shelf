@@ -59,7 +59,11 @@ export function installFrame(): void {
     const d = e.data as { uiShelf?: string; theme?: string } | null;
     if (d?.uiShelf === "theme" && d.theme) applyTheme(d.theme);
   });
-  window.addEventListener("error", (e) => showError(e instanceof ErrorEvent ? (e.error ?? e.message) : e));
+  window.addEventListener("error", (e) => {
+    // 浏览器的 ResizeObserver 提示不是组件出错（地图、图表常触发），不显示
+    if (e instanceof ErrorEvent && /ResizeObserver loop/.test(e.message)) return;
+    showError(e instanceof ErrorEvent ? (e.error ?? e.message) : e);
+  });
   window.addEventListener("unhandledrejection", (e) => showError(e.reason));
   const start = () => {
     new ResizeObserver(report).observe(document.body);

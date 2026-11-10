@@ -171,9 +171,21 @@ export const shadcnAdapter: SourceAdapter = {
         }
       }
 
-      // 还没有 demo：组件文档（Markdown）的 Usage 里通常有一段完整示例
+      // 还没有 demo：先看仓库里的官方 demo 文件，再看组件文档（Markdown）Usage 里的示例
       let docDemo: { path: string; code: string } | null = null;
-      if (!demo && docs.has(entry.name)) {
+      if (!demo && lib.options?.demoUrl) {
+        const url = lib.options.demoUrl.replace(/\{name\}|\{slug\}/g, entry.name);
+        try {
+          const code = await ctx.fetchText(url);
+          if (componentExports(code).length) {
+            docDemo = { path: `demo/${entry.name}-demo.tsx`, code };
+            files.push(docDemo);
+          }
+        } catch {
+          /* 这个组件没有 demo 文件 */
+        }
+      }
+      if (!demo && !docDemo && docs.has(entry.name)) {
         try {
           const code = usageBlock(await ctx.fetchText(docs.get(entry.name) ?? ""));
           if (code && componentExports(code).length) {
@@ -199,6 +211,9 @@ export const shadcnAdapter: SourceAdapter = {
           }
         }
       }
+
+      // 还缺的 `@/…` 文件：给了仓库地址就按路径去仓库里取（demo 常引用 registry 没发的 ui 组件）
+      if (lib.options?.repo) await fillFromRepo(lib.options.repo, files, ctx);
 
       const own = (item.files ?? []).find((f) => /\.[jt]sx$/.test(f.path) && f.content);
       const exportName = own?.content ? pickExport(own.content, entry.name) : null;
@@ -288,4 +303,60 @@ export function usageBlock(md: string): string | null {
   const block = (s: string) => /```(?:tsx|jsx)\s*\n([\s\S]*?)```/.exec(s)?.[1] ?? null;
   const section = /^#{2,3}\s+(usage|example|examples|demo)\b[^\n]*\n([\s\S]*?)(?=^#{2}\s|(?![\s\S]))/im.exec(md);
   return (section && block(section[2])) || block(md);
+}
+
+const repoCache = new Map<string, Promise<string | null>>();
+
+/** 源码里 import 了、本地又没有的文件路径：`@/…` 按项目根，`./…`、`../…` 按所在文件的目录（cn 除外） */
+function missingAliasPaths(files: SourceFile[]): string[] {
+  const stems = new Set(files.map((f) => f.path.replace(/\.[jt]sx?$/, "").replace(/\/index$/, "")));
+  const out = new Set<string>();
+  for (const f of files) {
+    const dir = f.path.split("/").slice(0, -1);
+    for (const m of f.code.matchAll(/(?:from|import)\s+["'](@\/|\.{1,2}\/)([^"']*)["']/g)) {
+      let spec: string;
+      if (m[1] === "@/") spec = m[2];
+      else {
+        const parts = [...dir];
+        for (const seg of `${m[1]}${m[2]}`.split("/")) {
+          if (seg === "..") parts.pop();
+          else if (seg && seg !== ".") parts.push(seg);
+        }
+        spec = parts.join("/");
+      }
+      spec = spec.replace(/\.[jt]sx?$/, "").replace(/\/$/, "");
+      if (!spec || /(^|\/)(lib\/utils|utils\/cn|lib\/cn|utils)$/.test(spec) || /\.(css|svg|png|jpe?g|gif|webp|json)$/.test(spec)) continue;
+      if ([...stems].some((s) => s === spec || (m[1] === "@/" && s.endsWith(`/${spec}`)))) continue;
+      out.add(spec);
+    }
+  }
+  return [...out];
+}
+
+async function fillFromRepo(base: string, files: SourceFile[], ctx: SyncContext): Promise<void> {
+  const root = base.endsWith("/") ? base : `${base}/`;
+  const tried = new Set<string>();
+  for (let round = 0; round < 10; round++) {
+    const missing = missingAliasPaths(files).filter((p) => !tried.has(p));
+    if (!missing.length) return;
+    for (const spec of missing) {
+      tried.add(spec);
+      for (const ext of [".tsx", ".ts", "/index.tsx", "/index.ts", ".jsx", ".js"]) {
+        const url = `${root}${spec}${ext}`;
+        let p = repoCache.get(url);
+        if (!p) {
+          p = ctx.fetchText(url).then(
+            (t) => (/^\s*</.test(t) ? null : t),
+            () => null,
+          );
+          repoCache.set(url, p);
+        }
+        const code = await p;
+        if (code != null) {
+          files.push({ path: `${spec}${ext}`, code });
+          break;
+        }
+      }
+    }
+  }
 }

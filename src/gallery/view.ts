@@ -1,10 +1,12 @@
-import { ItemView, setIcon, TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { setIcon, TextFileView, TFile, type WorkspaceLeaf } from "obsidian";
 import { locale, t } from "../i18n";
 import { VOCABULARY } from "../core/tags";
 import { PreviewBlock } from "../preview/block";
 import type UiShelfPlugin from "../main";
 
 export const GALLERY_VIEW = "ui-shelf-gallery";
+/** 画廊文件的扩展名。文件内容是这个画廊的筛选和明暗（JSON），可以建多个当「保存的筛选」 */
+export const GALLERY_EXT = "uishelf";
 
 type Theme = "auto" | "light" | "dark";
 
@@ -35,6 +37,8 @@ interface State {
 
 const PAGE = 24;
 
+export const DEFAULT_STATE: State = { query: "", lib: "", type: "", freeOnly: false, theme: "auto" };
+
 /** frontmatter 里的值转字符串：只认字符串 / 数字，其他（日期被 YAML 解析成对象等）用后备值 */
 const str = (v: unknown, fallback: string): string => (typeof v === "string" || typeof v === "number" ? String(v) : fallback);
 
@@ -46,9 +50,12 @@ const TAG_WORDS = new Map(VOCABULARY.map((d) => [`ui/${d.dim}/${d.value}`, [d.va
  * 组件画廊：像组件库官网首页那样一路往下滚、直接看实时效果。
  * 左边搜索 + 按库 / 类型筛选，右边每个组件一张大卡片。
  * 预览按需挂载：卡片进入视口附近才建 iframe，离开就卸掉，几百个组件也不卡。
+ *
+ * 画廊是一个 .uishelf 文件（内容是筛选状态的 JSON），这样它能出现在文件列表里、
+ * 被 Notebook Navigator 等加进快捷方式；多建几个文件就是几份保存好的筛选。
  */
-export class GalleryView extends ItemView {
-  private state: State = { query: "", lib: "", type: "", freeOnly: false, theme: "auto" };
+export class GalleryView extends TextFileView {
+  private state: State = { ...DEFAULT_STATE };
   private entries: Entry[] = [];
   private filtered: Entry[] = [];
   private shown = 0;
@@ -72,28 +79,39 @@ export class GalleryView extends ItemView {
     return GALLERY_VIEW;
   }
 
-  getDisplayText(): string {
-    return t("gallery.title");
-  }
-
   getIcon(): string {
     return "layout-grid";
   }
 
-  getState(): Record<string, unknown> {
-    return { ...this.state };
+  getViewData(): string {
+    return `${JSON.stringify(this.state, null, 2)}\n`;
   }
 
-  async setState(state: unknown, result: ViewStateResult): Promise<void> {
-    const s = (state ?? {}) as Partial<State>;
-    this.state = { ...this.state, ...s };
-    if (this.listEl) {
-      this.applyTheme();
-      if (this.searchEl) this.searchEl.value = this.state.query;
-      this.renderSide();
-      this.renderList();
+  setViewData(data: string): void {
+    let parsed: Partial<State> = {};
+    try {
+      parsed = (JSON.parse(data || "{}") ?? {}) as Partial<State>;
+    } catch {
+      parsed = {};
     }
-    await super.setState(state, result);
+    const pick = <K extends keyof State>(k: K, ok: (v: unknown) => boolean): Partial<State> => (ok(parsed[k]) ? { [k]: parsed[k] } : {});
+    const isStr = (v: unknown) => typeof v === "string";
+    this.state = {
+      ...DEFAULT_STATE,
+      ...pick("query", isStr),
+      ...pick("lib", isStr),
+      ...pick("type", isStr),
+      ...pick("freeOnly", (v) => typeof v === "boolean"),
+      ...pick("theme", (v) => v === "auto" || v === "light" || v === "dark"),
+    };
+    if (!this.listEl) return;
+    this.applyTheme();
+    this.renderSide();
+    this.renderList();
+  }
+
+  clear(): void {
+    this.state = { ...DEFAULT_STATE };
   }
 
   async onOpen(): Promise<void> {
@@ -137,6 +155,7 @@ export class GalleryView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    await super.onClose();
     this.observer?.disconnect();
     this.moreObserver?.disconnect();
     for (const b of this.blocks.values()) this.removeChild(b);
@@ -316,7 +335,7 @@ export class GalleryView extends ItemView {
         seg.querySelectorAll(".usg-theme-btn").forEach((x) => x.removeClass("is-active"));
         b.addClass("is-active");
         this.applyTheme();
-        this.app.workspace.requestSaveLayout();
+        this.requestSave();
       });
     }
   }
@@ -348,7 +367,7 @@ export class GalleryView extends ItemView {
     this.state.query = q.trim();
     this.renderSideCounts();
     this.renderList();
-    this.app.workspace.requestSaveLayout();
+    this.requestSave();
   }
 
   /** 搜索时只重画侧栏（保留输入框焦点） */
@@ -369,7 +388,7 @@ export class GalleryView extends ItemView {
     this.renderSideCounts();
     this.renderList();
     this.listEl.parentElement?.scrollTo({ top: 0 });
-    this.app.workspace.requestSaveLayout();
+    this.requestSave();
   }
 
   // ── 主题

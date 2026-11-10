@@ -7,7 +7,7 @@ import { reportMarkdown, type LibReport, type SyncReport } from "./core/report";
 import { pathsFor } from "./core/notes";
 import { makeContext, syncLibrary, writeIndexes, type SyncHost } from "./core/sync";
 import { setLocale, t } from "./i18n";
-import { GALLERY_VIEW, GalleryView } from "./gallery/view";
+import { DEFAULT_STATE, GALLERY_EXT, GALLERY_VIEW, GalleryView } from "./gallery/view";
 import { PreviewBlock } from "./preview/block";
 import { compileModules, pkgOf, setEsmPeers } from "./preview/build";
 import { ShelfSettingTab } from "./settings-tab";
@@ -61,6 +61,7 @@ export default class UiShelfPlugin extends Plugin {
     });
 
     this.registerView(GALLERY_VIEW, (leaf) => new GalleryView(leaf, this));
+    this.registerExtensions([GALLERY_EXT], GALLERY_VIEW);
     this.addRibbonIcon("layout-grid", t("gallery.open"), () => void this.openGallery());
     this.addCommand({ id: "open-gallery", name: t("gallery.open"), callback: () => void this.openGallery() });
     this.addCommand({ id: "sync-all", name: t("cmd.syncAll"), callback: () => void this.syncAll() });
@@ -530,12 +531,26 @@ export default class UiShelfPlugin extends Plugin {
     return true;
   }
 
-  /** 已经开着就切过去，否则开一个新标签页 */
+  /** 默认画廊文件：<目录>/Gallery.uishelf，没有就建一个 */
+  async galleryFile(): Promise<TFile> {
+    const path = normalizePath(`${pathsFor(this.data.rootFolder).root}/Gallery.${GALLERY_EXT}`);
+    const found = this.app.vault.getAbstractFileByPath(path);
+    if (found instanceof TFile) return found;
+    const dir = path.split("/").slice(0, -1).join("/");
+    if (dir && !this.app.vault.getAbstractFileByPath(dir)) await this.app.vault.createFolder(dir).catch(() => undefined);
+    return this.app.vault.create(path, `${JSON.stringify(DEFAULT_STATE, null, 2)}\n`);
+  }
+
+  /** 已经开着就切过去，否则在新标签页打开默认画廊文件 */
   async openGallery(): Promise<void> {
     const ws = this.app.workspace;
-    const leaf = ws.getLeavesOfType(GALLERY_VIEW)[0] ?? ws.getLeaf("tab");
-    if (leaf.view.getViewType() !== GALLERY_VIEW) await leaf.setViewState({ type: GALLERY_VIEW, active: true });
-    await ws.revealLeaf(leaf);
+    const file = await this.galleryFile();
+    const open = ws.getLeavesOfType(GALLERY_VIEW).find((l) => (l.view as GalleryView).file?.path === file.path);
+    if (open) {
+      await ws.revealLeaf(open);
+      return;
+    }
+    await ws.getLeaf("tab").openFile(file);
   }
 
   async openHome(): Promise<void> {

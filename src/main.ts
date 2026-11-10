@@ -7,6 +7,7 @@ import { reportMarkdown, type LibReport, type SyncReport } from "./core/report";
 import { pathsFor } from "./core/notes";
 import { makeContext, syncLibrary, writeIndexes, type SyncHost } from "./core/sync";
 import { setLocale, t } from "./i18n";
+import { GALLERY_VIEW, GalleryView } from "./gallery/view";
 import { PreviewBlock } from "./preview/block";
 import { compileModules, pkgOf, setEsmPeers } from "./preview/build";
 import { ShelfSettingTab } from "./settings-tab";
@@ -59,7 +60,9 @@ export default class UiShelfPlugin extends Plugin {
       ctx.addChild(new PreviewBlock(el, this, source));
     });
 
-    this.addRibbonIcon("blocks", t("ribbon.sync"), () => void this.syncAll());
+    this.registerView(GALLERY_VIEW, (leaf) => new GalleryView(leaf, this));
+    this.addRibbonIcon("layout-grid", t("gallery.open"), () => void this.openGallery());
+    this.addCommand({ id: "open-gallery", name: t("gallery.open"), callback: () => void this.openGallery() });
     this.addCommand({ id: "sync-all", name: t("cmd.syncAll"), callback: () => void this.syncAll() });
     this.addCommand({ id: "sync-sources", name: t("cmd.syncSources"), callback: () => void this.syncAll("files") });
     this.addCommand({ id: "sync-latest-source", name: t("cmd.syncLatest"), callback: () => void this.syncAll("latest") });
@@ -525,6 +528,14 @@ export default class UiShelfPlugin extends Plugin {
     new Notice(t("add.added", { name: lib.name }));
     void this.syncAll([lib]);
     return true;
+  }
+
+  /** 已经开着就切过去，否则开一个新标签页 */
+  async openGallery(): Promise<void> {
+    const ws = this.app.workspace;
+    const leaf = ws.getLeavesOfType(GALLERY_VIEW)[0] ?? ws.getLeaf("tab");
+    if (leaf.view.getViewType() !== GALLERY_VIEW) await leaf.setViewState({ type: GALLERY_VIEW, active: true });
+    await ws.revealLeaf(leaf);
   }
 
   async openHome(): Promise<void> {

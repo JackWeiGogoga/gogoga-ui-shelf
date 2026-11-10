@@ -77,6 +77,19 @@ const en = {
   "settings.networkDesc":
     "Syncing fetches each library's public index. Previews run component code inside a sandboxed frame that cannot reach your vault; packages that are not bundled are loaded from esm.sh.",
 
+  "gallery.title": "Component gallery",
+  "gallery.open": "Open component gallery",
+  "gallery.search": "Search components…",
+  "gallery.all": "All",
+  "gallery.libraries": "Libraries",
+  "gallery.types": "Types",
+  "gallery.freeOnly": "Free only",
+  "gallery.count": "{n} components",
+  "gallery.empty": "No components match. Clear the filters, or sync first.",
+  "gallery.openNote": "Open note",
+  "gallery.proNoCover": "Pro component — open the official page to see it",
+  "gallery.noSource": "No source code — open the official page to see it",
+  "gallery.untyped": "Untyped",
   "preview.theme": "Theme: {theme}",
   "preview.themeAuto": "auto",
   "preview.themeLight": "light",
@@ -166,6 +179,19 @@ const zh: Record<Key, string> = {
   "settings.networkDesc":
     "同步时读取各组件库公开的索引。预览在沙箱 iframe 里运行组件代码，碰不到你的笔记库；插件没内置的 npm 包从 esm.sh 加载。",
 
+  "gallery.title": "组件画廊",
+  "gallery.open": "打开组件画廊",
+  "gallery.search": "搜索组件…",
+  "gallery.all": "全部",
+  "gallery.libraries": "组件库",
+  "gallery.types": "类型",
+  "gallery.freeOnly": "只看免费",
+  "gallery.count": "{n} 个组件",
+  "gallery.empty": "没有匹配的组件。清空筛选，或者先同步",
+  "gallery.openNote": "打开笔记",
+  "gallery.proNoCover": "付费组件，到官方页面查看效果",
+  "gallery.noSource": "没有源码，到官方页面查看效果",
+  "gallery.untyped": "未分类",
   "preview.theme": "主题：{theme}",
   "preview.themeAuto": "跟随",
   "preview.themeLight": "浅色",
@@ -187,6 +213,10 @@ let current: "en" | "zh" = "en";
 
 export function setLocale(lang: string | null | undefined): void {
   current = (lang ?? "").toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+export function locale(): "en" | "zh" {
+  return current;
 }
 
 export function t(key: Key, vars?: Record<string, string | number>): string {

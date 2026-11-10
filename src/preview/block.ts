@@ -11,6 +11,16 @@ export interface PreviewHost {
   readCache(lib: string, slug: string): Promise<ComponentItem | null>;
 }
 
+/** 画廊里用的紧凑模式：没有标题栏，操作按钮浮在预览角上；没源码时显示封面而不是嵌官方页面 */
+export interface PreviewOptions {
+  compact?: boolean;
+  /** 已解析好的封面地址（compact 且没源码时用） */
+  cover?: string;
+  onOpenNote?: () => void;
+  /** 由外部（画廊）统一决定明暗；给了就不显示单块的主题按钮，iframe 背景透明，透出画廊卡片底色 */
+  theme?: () => "light" | "dark";
+}
+
 const MIN_H = 140;
 const MAX_H = 900;
 const OFFICIAL_H = 560;
@@ -33,12 +43,14 @@ export class PreviewBlock extends MarkdownRenderChild {
     el: HTMLElement,
     private host: PreviewHost,
     private ref: string,
+    private opts: PreviewOptions = {},
   ) {
     super(el);
   }
 
   onload(): void {
     this.containerEl.addClass("ui-shelf-preview");
+    if (this.opts.compact) this.containerEl.addClass("is-compact");
     void this.render();
     this.registerDomEvent(window, "message", (e: MessageEvent) => {
       if (!this.frame || e.source !== this.frame.contentWindow) return;
@@ -51,12 +63,18 @@ export class PreviewBlock extends MarkdownRenderChild {
   }
 
   private isDark(): boolean {
+    if (this.opts.theme) return this.opts.theme() === "dark";
     if (this.mode === "auto") return document.body.classList.contains("theme-dark");
     return this.mode === "dark";
   }
 
+  /** 外部主题变了（画廊切明暗）：通知 iframe 换 class，不用重新渲染 */
+  applyTheme(): void {
+    this.frame?.contentWindow?.postMessage({ uiShelf: "theme", theme: this.isDark() ? "dark" : "light" }, "*");
+  }
+
   private postTheme(): void {
-    if (this.mode !== "auto" || !this.frame?.contentWindow) return;
+    if (this.opts.theme || this.mode !== "auto" || !this.frame?.contentWindow) return;
     this.frame.contentWindow.postMessage({ uiShelf: "theme", theme: this.isDark() ? "dark" : "light" }, "*");
   }
 
@@ -75,9 +93,10 @@ export class PreviewBlock extends MarkdownRenderChild {
       el.createDiv({ cls: "ui-shelf-message", text: t("preview.missing", { ref }) });
       return;
     }
-    this.renderToolbar(el, this.item);
+    if (!this.opts.compact) this.renderToolbar(el, this.item);
     const stage = el.createDiv({ cls: "ui-shelf-stage" });
     this.mount(stage);
+    if (this.opts.compact) this.renderFloating(el, this.item);
     this.renderVariants(el, this.item);
   }
 
@@ -89,7 +108,15 @@ export class PreviewBlock extends MarkdownRenderChild {
       cls: `ui-shelf-tier is-${item.tier}`,
       text: item.tier === "pro" ? t("preview.pro") : t("preview.free"),
     });
-    const actions = bar.createDiv({ cls: "ui-shelf-actions" });
+    this.renderActions(bar.createDiv({ cls: "ui-shelf-actions" }), item);
+  }
+
+  /** 紧凑模式：操作按钮浮在预览右上角，悬停时出现 */
+  private renderFloating(el: HTMLElement, item: ComponentItem): void {
+    this.renderActions(el.createDiv({ cls: "ui-shelf-actions ui-shelf-float" }), item);
+  }
+
+  private renderActions(actions: HTMLElement, item: ComponentItem): void {
     const button = (icon: string, label: string, onClick: () => void) => {
       const b = actions.createEl("button", { cls: "clickable-icon ui-shelf-btn", attr: { "aria-label": label } });
       setIcon(b, icon);
@@ -100,7 +127,7 @@ export class PreviewBlock extends MarkdownRenderChild {
       });
       return b;
     };
-    if (item.preview) {
+    if (item.preview && !this.opts.theme) {
       const themeIcon = () => (this.mode === "auto" ? "sun-moon" : this.mode === "light" ? "sun" : "moon");
       const themeLabel = () =>
         t("preview.theme", {
@@ -112,8 +139,14 @@ export class PreviewBlock extends MarkdownRenderChild {
         tb.setAttribute("aria-label", themeLabel());
         this.remount();
       });
+    }
+    if (item.preview) {
       button("rotate-ccw", t("preview.replay"), () => this.remount());
       button("code-2", t("preview.code"), () => new CodeModal(this.host.app, item).open());
+    }
+    if (this.opts.onOpenNote) {
+      const open = this.opts.onOpenNote;
+      button("file-text", t("gallery.openNote"), () => open());
     }
     button("external-link", t("preview.page"), () => window.open(item.page));
   }
@@ -158,6 +191,18 @@ export class PreviewBlock extends MarkdownRenderChild {
     stage.empty();
     const item = this.item;
     if (!item) return;
+    if (!item.preview && this.opts.compact) {
+      // 画廊里不嵌官方整页（太重，一屏好几个）：有封面放封面，没有就给个入口
+      this.frame = null;
+      const box = stage.createDiv({ cls: "ui-shelf-cover-box" });
+      if (this.opts.cover) box.createEl("img", { attr: { src: this.opts.cover, alt: item.name, loading: "lazy" } });
+      else {
+        box.addClass("is-placeholder");
+        box.createDiv({ cls: "ui-shelf-message", text: item.tier === "pro" ? t("gallery.proNoCover") : t("gallery.noSource") });
+        box.createEl("button", { cls: "ui-shelf-open-page", text: t("preview.page") }).addEventListener("click", () => window.open(item.page));
+      }
+      return;
+    }
     const frame = stage.createEl("iframe", { cls: "ui-shelf-frame" });
     this.frame = frame;
     if (!item.preview) {
@@ -171,8 +216,9 @@ export class PreviewBlock extends MarkdownRenderChild {
     frame.setAttribute("sandbox", "allow-scripts");
     frame.style.height = `${MIN_H}px`;
     const dark = this.isDark();
-    const background = this.mode === "auto" ? "transparent" : dark ? "#0b0b0c" : "#ffffff";
-    stage.toggleClass("is-solid", this.mode !== "auto");
+    const solid = !this.opts.theme && this.mode !== "auto";
+    const background = solid ? (dark ? "#0b0b0c" : "#ffffff") : "transparent";
+    stage.toggleClass("is-solid", solid);
     try {
       const spec =
         item.preview.kind === "react" && Object.keys(this.overrides).length

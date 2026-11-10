@@ -11,7 +11,8 @@ The interface follows Obsidian's language setting: it is in English, or in Simpl
 - **A note per component**: description, live preview, license tier, tags, install command, and a "Use it" section with styling approach, npm dependencies, requirements, export name, required props and a usage snippet.
 - **Live previews**: React, Tailwind, CSS Modules and plain HTML/CSS/JS components run in a sandboxed frame inside the note. Switch light/dark, replay animations, view and copy the code. When a library ships official demos, the preview renders the demo.
 - **Hierarchical tags**: `ui/type/…` (what it is), `ui/scene/…` (where it is used), `ui/motion/…` (how it moves), `ui/style/…` (how it looks). Rules tag new components once; your edits are never overwritten.
-- **Browse in Bases**: a card wall with covers (generated screenshots when a library has none), latest components, this week, by type, by library, free only, untagged.
+- **Component gallery**: one scrolling page that runs every component live, like a library's own showcase site. Search (also matches Chinese tag names), filter by library, type or free only, switch light / dark for the whole page, and flip variants (size, style…) under each preview. Previews mount as they scroll into view, so hundreds of components stay smooth. Open it from the ribbon or the command **Open component gallery**.
+- **Browse in Bases** too: a card wall with covers (generated screenshots when a library has none), latest components, this week, by type, by library, free only, untagged.
 - **Paid components stay paid**: Pro items are kept as metadata with a link to the official page. Their code is never fetched or reconstructed.
 - **Made for agents**: `catalog.json` lists every component with integration details; a bundled agent skill explains how to find, use and add libraries; agents add new libraries by writing a small source file and reading a sync report.
 
@@ -31,7 +32,7 @@ Install and enable [BRAT](https://github.com/TfTHacker/obsidian42-brat) from the
 
 1. Settings → gogoga UI Shelf. Pick a folder (default `UI Shelf`).
 2. Add libraries: click **Add** next to a suggested source, or **Add library** and paste a URL (a site with a shadcn registry or an `/r` index, or transitions.dev). Nothing is added by default.
-3. The first sync writes the notes. Open `UI Shelf.md` for the card wall, or any component note for its live preview.
+3. The first sync writes the notes. Click the gallery icon in the ribbon to browse everything live, open `UI Shelf.md` for the card wall, or open any component note.
 
 Built-in source types:
 

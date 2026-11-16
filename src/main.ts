@@ -139,7 +139,38 @@ export default class UiShelfPlugin extends Plugin {
     }
   }
 
+  /** 组件库 id → 预览里站内路径资源的解析地址（官网域名或来源文件的 assetBase） */
+  private assetBases: Promise<Map<string, string>> | null = null;
+
+  private assetBaseMap(): Promise<Map<string, string>> {
+    this.assetBases ??= this.allLibraries().then(
+      ({ libs }) => {
+        const map = new Map<string, string>();
+        for (const l of libs) {
+          try {
+            const own = l.manifest?.assetBase;
+            map.set(l.id, own ? new URL(own.endsWith("/") ? own : `${own}/`).href : `${new URL(l.homepage).origin}/`);
+          } catch {
+            /* 地址写错就不加 base */
+          }
+        }
+        return map;
+      },
+      () => new Map<string, string>(),
+    );
+    return this.assetBases;
+  }
+
   async readCache(lib: string, slug: string): Promise<ComponentItem | null> {
+    const item = await this.readCacheRaw(lib, slug);
+    if (item?.preview && !item.preview.assetBase) {
+      const base = (await this.assetBaseMap()).get(lib);
+      if (base) item.preview.assetBase = base;
+    }
+    return item;
+  }
+
+  private async readCacheRaw(lib: string, slug: string): Promise<ComponentItem | null> {
     const key = `${lib}/${slug}`;
     if (this.memo.has(key)) return this.memo.get(key) ?? null;
     const path = this.cachePath(lib, slug);
@@ -370,6 +401,7 @@ export default class UiShelfPlugin extends Plugin {
    * 结束后按设置生成封面（封面生成同时就是新组件的预览检查）。
    */
   async syncAll(scope: Scope = "all"): Promise<void> {
+    this.assetBases = null; // 组件库可能增删改，下次渲染重新算
     if (!(await this.app.vault.adapter.exists(this.sourcesDir()))) await this.app.vault.createFolder(this.sourcesDir()).catch(() => undefined);
     const { libs, all } = await this.scopeLibraries(scope);
     const trigger = Array.isArray(scope) ? "sync" : scope === "all" ? "sync" : scope === "files" ? "sync-sources" : "sync-latest-source";

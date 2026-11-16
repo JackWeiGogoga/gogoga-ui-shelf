@@ -224,8 +224,9 @@ export function compileModules(files: { path: string; code: string }[]): { modul
 export function buildSrcdoc(spec: PreviewSpec, o: BuildOptions): string {
   const htmlAttrs = `data-theme="${o.theme}" class="${o.theme === "dark" ? "dark" : ""}" style="color-scheme:${o.theme}"`;
   // 有些组件直接读 process.env（Next.js 习惯），浏览器里没有
+  const base = spec.assetBase && /^https?:\/\//.test(spec.assetBase) ? `<base href="${attr(spec.assetBase)}">` : "";
   const head =
-    `<meta charset="utf-8"><style>${BASE_CSS(o)}</style><script>window.process = window.process || { env: { NODE_ENV: "production" } };</script>` +
+    `<meta charset="utf-8">${base}<style>${BASE_CSS(o)}</style><script>window.process = window.process || { env: { NODE_ENV: "production" } };</script>` +
     (o.capture ? `<script>${safeScript(captureJs)}</script>` : "");
 
   if (spec.kind === "html") {

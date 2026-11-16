@@ -76,7 +76,7 @@ export interface SourceFile {
  * - html：现成的 HTML/CSS/JS 片段（transitions.dev）
  * - react：TSX/JSX 源码 + CSS，插件编译后在沙箱里挂载 entry 的导出组件
  */
-export type PreviewSpec =
+export type PreviewSpec = (
   | { kind: "html"; html: string; css: string; js: string }
   | {
       kind: "react";
@@ -92,7 +92,14 @@ export type PreviewSpec =
        * 组件本身的文件和导出名记在这里，接入信息（用法、props）按它算。
        */
       component?: { entry: string; exportName: string };
-    };
+    }
+) & {
+  /**
+   * 演示代码里站内路径的资源（`/avatars/a.jpg`）相对哪个网址解析：组件库官网。
+   * 不存进缓存，渲染前由插件按组件库补上（沙箱页面是 about:srcdoc，站内路径会落空）
+   */
+  assetBase?: string;
+};
 
 /** 适配器采集到的一个组件（事实信息，同步时覆盖写入）。 */
 export interface ComponentItem {

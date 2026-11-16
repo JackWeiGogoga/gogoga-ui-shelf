@@ -105,6 +105,8 @@ export interface SourceManifest {
   // ── 以下对三种模式都生效（在采集结果上覆盖）
   /** 组件页地址模板，如 "https://x.dev/docs/components/{slug}"（来源只给了首页时用） */
   pageTemplate?: string;
+  /** 演示代码里站内路径的图片等资源从哪里取，默认组件库首页的域名 */
+  assetBase?: string;
   /** 按 slug 指定组件页地址（优先于 pageTemplate；组件页路径不统一时用） */
   pages?: Record<string, string>;
   /** 封面图地址模板 */

@@ -1,6 +1,6 @@
 import { MarkdownRenderChild, Modal, Notice, setIcon, type App } from "obsidian";
 import { t } from "../i18n";
-import type { ComponentItem } from "../types";
+import type { ComponentItem, PreviewSpec } from "../types";
 import { propChoices } from "../sources/util";
 import { buildSrcdoc } from "./build";
 
@@ -141,6 +141,9 @@ export class PreviewBlock extends MarkdownRenderChild {
       });
     }
     if (item.preview) {
+      button("maximize-2", t("preview.fullscreen"), () =>
+        new FullscreenModal(this.host.app, item, this.previewSpec(item), this.isDark()).open(),
+      );
       button("rotate-ccw", t("preview.replay"), () => this.remount());
       button("code-2", t("preview.code"), () => new CodeModal(this.host.app, item).open());
     }
@@ -182,6 +185,12 @@ export class PreviewBlock extends MarkdownRenderChild {
     }
   }
 
+  /** 预览规格，叠加变体切换条上选的值 */
+  private previewSpec(item: ComponentItem): PreviewSpec {
+    const p = item.preview as PreviewSpec;
+    return p.kind === "react" && Object.keys(this.overrides).length ? { ...p, props: { ...(p.props ?? {}), ...this.overrides } } : p;
+  }
+
   private remount(): void {
     const stage = this.containerEl.querySelector<HTMLElement>(".ui-shelf-stage");
     if (stage) this.mount(stage);
@@ -220,15 +229,71 @@ export class PreviewBlock extends MarkdownRenderChild {
     const background = solid ? (dark ? "#0b0b0c" : "#ffffff") : "transparent";
     stage.toggleClass("is-solid", solid);
     try {
-      const spec =
-        item.preview.kind === "react" && Object.keys(this.overrides).length
-          ? { ...item.preview, props: { ...(item.preview.props ?? {}), ...this.overrides } }
-          : item.preview;
-      frame.srcdoc = buildSrcdoc(spec, { theme: dark ? "dark" : "light", background });
+      frame.srcdoc = buildSrcdoc(this.previewSpec(item), { theme: dark ? "dark" : "light", background });
     } catch (e) {
       stage.empty();
       stage.createEl("pre", { cls: "ui-shelf-error", text: (e as Error).message });
     }
+  }
+}
+
+/**
+ * 全屏查看：大弹窗里按原尺寸重新渲染一份（独立的 iframe，状态从头开始），
+ * 适合整页应用和在卡片里被缩小的组件。弹窗里自带明暗切换，Esc 关闭。
+ */
+class FullscreenModal extends Modal {
+  constructor(
+    app: App,
+    private item: ComponentItem,
+    private spec: PreviewSpec,
+    private dark: boolean,
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.modalEl.addClass("ui-shelf-fullscreen-modal");
+    this.setTitle(this.item.name);
+    const bar = this.titleEl.createDiv({ cls: "ui-shelf-actions" });
+    const theme = bar.createEl("button", { cls: "clickable-icon ui-shelf-btn" });
+    const sync = () => {
+      setIcon(theme, this.dark ? "moon" : "sun");
+      theme.setAttribute("aria-label", t("preview.theme", { theme: t(this.dark ? "preview.themeDark" : "preview.themeLight") }));
+    };
+    sync();
+    theme.addEventListener("click", () => {
+      this.dark = !this.dark;
+      sync();
+      this.render();
+    });
+    const page = bar.createEl("button", { cls: "clickable-icon ui-shelf-btn", attr: { "aria-label": t("preview.page") } });
+    setIcon(page, "external-link");
+    page.addEventListener("click", () => window.open(this.item.page));
+    this.render();
+  }
+
+  private render(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("ui-shelf-fullscreen-body");
+    const frame = contentEl.createEl("iframe", { cls: "ui-shelf-frame" });
+    frame.setAttribute("sandbox", "allow-scripts");
+    try {
+      frame.srcdoc = buildSrcdoc(this.spec, {
+        theme: this.dark ? "dark" : "light",
+        background: this.dark ? "#0b0b0c" : "#ffffff",
+        fullscreen: true,
+      });
+      // 弹窗里 iframe 一打开就拿焦点，键盘快捷键直接给组件
+      frame.addEventListener("load", () => frame.contentWindow?.focus());
+    } catch (e) {
+      contentEl.empty();
+      contentEl.createEl("pre", { cls: "ui-shelf-error", text: (e as Error).message });
+    }
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
   }
 }
 

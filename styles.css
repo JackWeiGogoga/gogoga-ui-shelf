@@ -664,3 +664,14 @@
     gap: 6px;
   }
 }
+
+/* 全屏查看弹窗 */
+.modal.ui-shelf-fullscreen-modal {
+  width: 96vw; max-width: 96vw; height: 94vh; max-height: 94vh;
+  padding: 0; display: flex; flex-direction: column; overflow: hidden;
+}
+.ui-shelf-fullscreen-modal .modal-header { padding: 10px 48px 10px 16px; flex: none; }
+.ui-shelf-fullscreen-modal .modal-title { display: flex; align-items: center; gap: 10px; font-size: var(--font-ui-medium); }
+.ui-shelf-fullscreen-modal .modal-title .ui-shelf-actions { margin-left: auto; display: flex; gap: 2px; }
+.ui-shelf-fullscreen-modal .modal-content.ui-shelf-fullscreen-body { flex: 1; min-height: 0; padding: 0; margin: 0; }
+.ui-shelf-fullscreen-body .ui-shelf-frame { display: block; width: 100%; height: 100%; border: 0; border-top: 1px solid var(--background-modifier-border); }

@@ -131,6 +131,7 @@ The \`sources/\` folder is created by the plugin on its first sync; create it yo
   // "pageTemplate": "https://magicui.design/docs/components/{slug}",   // when components only got the homepage
   // "pages": { "card-cover-flow": "https://x.dev/carousels/card-cover-flow" },   // per-slug page when one template doesn't fit all
   // "assetBase": "https://cdn.x.dev/",   // where demo paths like "/avatars/a.jpg" load from (default: the homepage's origin)
+  // Full-page apps as a preview: the full-screen view puts class "ui-shelf-fullscreen" on <html>; fill the window there, scale down in cards
   // "coverTemplate": "https://…/{slug}.png",
   // "categories": { "marquee": ["Animation"] },
   // "tags": { "marquee": ["ui/type/list", "ui/motion/stream"] },       // vocabulary values only

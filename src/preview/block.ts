@@ -1,15 +1,19 @@
-import { MarkdownRenderChild, Modal, Notice, type App } from "obsidian";
+import { MarkdownRenderChild, Modal, type App } from "obsidian";
 import { t } from "../i18n";
 import { icon } from "../icon";
 import type { ComponentItem, PreviewSpec } from "../types";
 import { propChoices } from "../sources/util";
 import { buildSrcdoc } from "./build";
+import { CodeModal, type CodePlaces } from "./code-modal";
 
 type ThemeMode = "auto" | "light" | "dark";
 
 export interface PreviewHost {
   app: App;
   readCache(lib: string, slug: string): Promise<ComponentItem | null>;
+  /** 组件代码目录（vault 相对路径）和 vault 的磁盘路径：代码弹窗里「在 VS Code / Finder 打开」用 */
+  codeDir?(lib: string, slug: string): string;
+  vaultBase?(): string;
 }
 
 /** 画廊里用的紧凑模式：没有标题栏，操作按钮浮在预览角上；没源码时显示封面而不是嵌官方页面 */
@@ -146,7 +150,7 @@ export class PreviewBlock extends MarkdownRenderChild {
         new FullscreenModal(this.host.app, item, this.previewSpec(item), this.isDark()).open(),
       );
       button("rotate-ccw", t("preview.replay"), () => this.remount());
-      button("code-2", t("preview.code"), () => new CodeModal(this.host.app, item).open());
+      button("code-2", t("preview.code"), () => new CodeModal(this.host.app, item, this.codePlaces(item)).open());
     }
     if (this.opts.onOpenNote) {
       const open = this.opts.onOpenNote;
@@ -184,6 +188,13 @@ export class PreviewBlock extends MarkdownRenderChild {
         });
       }
     }
+  }
+
+  private codePlaces(item: ComponentItem): CodePlaces {
+    const lib = this.ref.trim().split("/")[0];
+    const base = this.host.vaultBase?.() ?? "";
+    const dir = this.host.codeDir?.(lib, item.slug) ?? "";
+    return { project: item.source || undefined, cache: base && dir ? `${base}/${dir}` : undefined };
   }
 
   /** 预览规格，叠加变体切换条上选的值 */
@@ -290,50 +301,6 @@ class FullscreenModal extends Modal {
     } catch (e) {
       contentEl.empty();
       contentEl.createEl("pre", { cls: "ui-shelf-error", text: (e as Error).message });
-    }
-  }
-
-  onClose(): void {
-    this.contentEl.empty();
-  }
-}
-
-class CodeModal extends Modal {
-  constructor(
-    app: App,
-    private item: ComponentItem,
-  ) {
-    super(app);
-  }
-
-  onOpen(): void {
-    const { contentEl, item } = this;
-    this.setTitle(item.name);
-    contentEl.addClass("ui-shelf-code-modal");
-    const files =
-      item.preview?.kind === "html"
-        ? [
-            { path: "index.html", code: item.preview.html },
-            { path: "style.css", code: item.preview.css },
-            { path: "script.js", code: item.preview.js },
-          ].filter((f) => f.code.trim())
-        : item.preview?.kind === "react"
-          ? [...item.preview.files, ...(item.preview.tailwindCss ? [{ path: "tailwind.css", code: item.preview.tailwindCss }] : [])]
-          : [];
-    const copy = (text: string) => {
-      void navigator.clipboard.writeText(text).then(() => new Notice(t("notice.copied")));
-    };
-    if (item.install) {
-      const row = contentEl.createDiv({ cls: "ui-shelf-code-head" });
-      row.createSpan({ text: t("preview.install") });
-      row.createEl("button", { text: t("preview.copy") }).addEventListener("click", () => copy(item.install));
-      contentEl.createEl("pre").createEl("code", { text: item.install });
-    }
-    for (const f of files) {
-      const row = contentEl.createDiv({ cls: "ui-shelf-code-head" });
-      row.createSpan({ text: f.path });
-      row.createEl("button", { text: t("preview.copy") }).addEventListener("click", () => copy(f.code));
-      contentEl.createEl("pre").createEl("code", { text: f.code });
     }
   }
 

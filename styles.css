@@ -675,3 +675,6 @@
 .ui-shelf-fullscreen-modal .modal-title .ui-shelf-actions { margin-left: auto; display: flex; gap: 2px; }
 .ui-shelf-fullscreen-modal .modal-content.ui-shelf-fullscreen-body { flex: 1; min-height: 0; padding: 0; margin: 0; }
 .ui-shelf-fullscreen-body .ui-shelf-frame { display: block; width: 100%; height: 100%; border: 0; border-top: 1px solid var(--background-modifier-border); }
+
+/* 实时预览里 Obsidian 在代码块右上角放了「编辑区块」按钮：工具栏右侧给它留位置，免得盖住我们的按钮 */
+.cm-embed-block .ui-shelf-preview:not(.is-compact) .ui-shelf-toolbar { padding-right: 40px; min-height: 36px; }

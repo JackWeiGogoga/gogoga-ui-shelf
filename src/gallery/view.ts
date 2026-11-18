@@ -1,5 +1,6 @@
-import { setIcon, TextFileView, TFile, type WorkspaceLeaf } from "obsidian";
+import { TextFileView, TFile, type WorkspaceLeaf } from "obsidian";
 import { locale, t } from "../i18n";
+import { icon } from "../icon";
 import { VOCABULARY } from "../core/tags";
 import { PreviewBlock } from "../preview/block";
 import type UiShelfPlugin from "../main";
@@ -259,7 +260,7 @@ export class GalleryView extends TextFileView {
     this.renderThemeSwitch(head);
 
     const search = el.createDiv({ cls: "usg-search" });
-    setIcon(search.createSpan({ cls: "usg-search-icon" }), "search");
+    icon(search.createSpan({ cls: "usg-search-icon" }), "search");
     this.searchEl = search.createEl("input", {
       type: "search",
       attr: { placeholder: t("gallery.search"), spellcheck: "false" },
@@ -312,7 +313,7 @@ export class GalleryView extends TextFileView {
 
     const foot = el.createDiv({ cls: "usg-foot" });
     const sync = foot.createEl("button", { cls: "usg-foot-btn" });
-    setIcon(sync.createSpan(), "refresh-cw");
+    icon(sync.createSpan(), "refresh-cw");
     sync.createSpan({ text: t("ribbon.sync") });
     sync.addEventListener("click", () => void this.plugin.syncAll());
     const last = this.plugin.data.lastSync;
@@ -326,9 +327,9 @@ export class GalleryView extends TextFileView {
       ["light", "sun", t("preview.themeLight")],
       ["dark", "moon", t("preview.themeDark")],
     ];
-    for (const [mode, icon, label] of opts) {
+    for (const [mode, name, label] of opts) {
       const b = seg.createEl("button", { cls: "usg-theme-btn", attr: { "aria-label": label } });
-      setIcon(b, icon);
+      icon(b, name);
       b.toggleClass("is-active", this.state.theme === mode);
       b.addEventListener("click", () => {
         this.state.theme = mode;
@@ -421,7 +422,7 @@ export class GalleryView extends TextFileView {
     const chip = (text: string, clear: Partial<State>) => {
       const c = chips.createEl("button", { cls: "usg-chip" });
       c.createSpan({ text });
-      setIcon(c.createSpan({ cls: "usg-chip-x" }), "x");
+      icon(c.createSpan({ cls: "usg-chip-x" }), "x");
       c.addEventListener("click", () => {
         if ("query" in clear && this.searchEl) this.searchEl.value = "";
         this.update(clear);

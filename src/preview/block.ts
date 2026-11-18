@@ -1,5 +1,6 @@
-import { MarkdownRenderChild, Modal, Notice, setIcon, type App } from "obsidian";
+import { MarkdownRenderChild, Modal, Notice, type App } from "obsidian";
 import { t } from "../i18n";
+import { icon } from "../icon";
 import type { ComponentItem, PreviewSpec } from "../types";
 import { propChoices } from "../sources/util";
 import { buildSrcdoc } from "./build";
@@ -117,9 +118,9 @@ export class PreviewBlock extends MarkdownRenderChild {
   }
 
   private renderActions(actions: HTMLElement, item: ComponentItem): void {
-    const button = (icon: string, label: string, onClick: () => void) => {
+    const button = (name: string, label: string, onClick: () => void) => {
       const b = actions.createEl("button", { cls: "clickable-icon ui-shelf-btn", attr: { "aria-label": label } });
-      setIcon(b, icon);
+      icon(b, name);
       b.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -135,7 +136,7 @@ export class PreviewBlock extends MarkdownRenderChild {
         });
       const tb = button(themeIcon(), themeLabel(), () => {
         this.mode = this.mode === "auto" ? "light" : this.mode === "light" ? "dark" : "auto";
-        setIcon(tb, themeIcon());
+        icon(tb, themeIcon());
         tb.setAttribute("aria-label", themeLabel());
         this.remount();
       });
@@ -257,7 +258,7 @@ class FullscreenModal extends Modal {
     const bar = this.titleEl.createDiv({ cls: "ui-shelf-actions" });
     const theme = bar.createEl("button", { cls: "clickable-icon ui-shelf-btn" });
     const sync = () => {
-      setIcon(theme, this.dark ? "moon" : "sun");
+      icon(theme, this.dark ? "moon" : "sun");
       theme.setAttribute("aria-label", t("preview.theme", { theme: t(this.dark ? "preview.themeDark" : "preview.themeLight") }));
     };
     sync();
@@ -267,7 +268,7 @@ class FullscreenModal extends Modal {
       this.render();
     });
     const page = bar.createEl("button", { cls: "clickable-icon ui-shelf-btn", attr: { "aria-label": t("preview.page") } });
-    setIcon(page, "external-link");
+    icon(page, "external-link");
     page.addEventListener("click", () => window.open(this.item.page));
     this.render();
   }

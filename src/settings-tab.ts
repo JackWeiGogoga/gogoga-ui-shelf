@@ -94,7 +94,7 @@ export class ShelfSettingTab extends PluginSettingTab {
           )
           .addExtraButton((b) =>
             b
-              .setIcon("trash-2")
+              .setIcon("lucide-trash-2")
               .setTooltip(`${t("settings.remove")} — ${t("settings.removeDesc")}`)
               .onClick(async () => {
                 data.libraries = data.libraries.filter((l) => l !== lib);

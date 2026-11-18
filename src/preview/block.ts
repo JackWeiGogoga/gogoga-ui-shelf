@@ -1,4 +1,4 @@
-import { MarkdownRenderChild, Modal, type App } from "obsidian";
+import { MarkdownRenderChild, Modal, type App, type Events } from "obsidian";
 import { t } from "../i18n";
 import { icon } from "../icon";
 import type { ComponentItem, PreviewSpec } from "../types";
@@ -25,6 +25,9 @@ export interface PreviewOptions {
   /** 由外部（画廊）统一决定明暗；给了就不显示单块的主题按钮，iframe 背景透明，透出画廊卡片底色 */
   theme?: () => "light" | "dark";
 }
+
+/** workspace 事件：某个组件的缓存内容变了（参数是 "lib/slug"），打开着的预览块据此重新渲染 */
+export const PREVIEW_UPDATED = "ui-shelf:preview-updated";
 
 const MIN_H = 140;
 const MAX_H = 900;
@@ -65,6 +68,11 @@ export class PreviewBlock extends MarkdownRenderChild {
       }
     });
     this.registerEvent(this.host.app.workspace.on("css-change", () => this.postTheme()));
+    this.registerEvent(
+      (this.host.app.workspace as Events).on(PREVIEW_UPDATED, (ref: unknown) => {
+        if (ref === this.ref.trim()) void this.render();
+      }),
+    );
   }
 
   private isDark(): boolean {

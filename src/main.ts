@@ -8,7 +8,7 @@ import { pathsFor } from "./core/notes";
 import { makeContext, syncLibrary, writeIndexes, type SyncHost } from "./core/sync";
 import { setLocale, t } from "./i18n";
 import { DEFAULT_STATE, GALLERY_EXT, GALLERY_VIEW, GalleryView } from "./gallery/view";
-import { PreviewBlock } from "./preview/block";
+import { PREVIEW_UPDATED, PreviewBlock } from "./preview/block";
 import { compileModules, pkgOf, setEsmPeers } from "./preview/build";
 import { ShelfSettingTab } from "./settings-tab";
 import { PRESETS } from "./sources";
@@ -122,9 +122,13 @@ export default class UiShelfPlugin extends Plugin {
     const dir = path.split("/").slice(0, -1).join("/");
     const adapter = this.app.vault.adapter;
     if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
-    await adapter.write(path, JSON.stringify(item));
+    const json = JSON.stringify(item);
+    const before = (await adapter.exists(path)) ? await adapter.read(path) : null;
+    await adapter.write(path, json);
     this.memo.set(`${lib}/${slug}`, item);
     await this.writeCode(lib, slug, item);
+    // 打开着的预览块（笔记、画廊）手上还是旧数据：内容真的变了才通知它们重新渲染
+    if (before !== null && before !== json) this.app.workspace.trigger(PREVIEW_UPDATED, `${lib}/${slug}`);
   }
 
   private async writeCode(lib: string, slug: string, item: ComponentItem): Promise<void> {

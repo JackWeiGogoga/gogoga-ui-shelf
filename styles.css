@@ -672,10 +672,14 @@
 .ui-shelf-code-modal .modal-content { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0; margin: 0; }
 .ui-shelf-code-body { flex: 1; min-height: 0; display: flex; }
 .ui-shelf-code-list { width: 230px; flex: none; overflow: auto; padding: 8px 6px; border-right: 1px solid var(--background-modifier-border); background: var(--background-secondary); }
-.ui-shelf-code-dir { display: flex; align-items: center; gap: 6px; padding: 8px 8px 4px; color: var(--text-faint); font-size: var(--font-ui-smaller); }
+.ui-shelf-code-dir { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: var(--radius-s); cursor: pointer; color: var(--text-muted); font-size: var(--font-ui-small); }
+.ui-shelf-code-dir:hover { background: var(--background-modifier-hover); }
+.ui-shelf-code-chevron { display: flex; width: 14px; color: var(--text-faint); transition: transform 0.15s; }
+.ui-shelf-code-chevron .svg-icon { width: 12px; height: 12px; }
+.ui-shelf-code-dir.is-collapsed .ui-shelf-code-chevron { transform: rotate(-90deg); }
+.ui-shelf-code-list .is-hidden { display: none; }
 .ui-shelf-code-dir .svg-icon, .ui-shelf-code-icon .svg-icon { width: 14px; height: 14px; }
 .ui-shelf-code-file { display: flex; align-items: center; gap: 7px; padding: 4px 8px; border-radius: var(--radius-s); cursor: pointer; color: var(--text-muted); font-size: var(--font-ui-small); }
-.ui-shelf-code-file.is-nested { padding-left: 22px; }
 .ui-shelf-code-file.is-install { margin-bottom: 6px; }
 .ui-shelf-code-file:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
 .ui-shelf-code-file.is-active { background: var(--background-modifier-active-hover); color: var(--text-normal); }

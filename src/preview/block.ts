@@ -91,7 +91,11 @@ export class PreviewBlock extends MarkdownRenderChild {
     this.frame.contentWindow.postMessage({ uiShelf: "theme", theme: this.isDark() ? "dark" : "light" }, "*");
   }
 
+  /** 每次渲染的编号：读缓存是异步的，较早的那次晚返回时不能盖掉新的结果 */
+  private renderSeq = 0;
+
   private async render(): Promise<void> {
+    const seq = ++this.renderSeq;
     const el = this.containerEl;
     el.empty();
     const ref = this.ref.trim();
@@ -101,7 +105,10 @@ export class PreviewBlock extends MarkdownRenderChild {
       el.createDiv({ cls: "ui-shelf-message", text: t("preview.empty") });
       return;
     }
-    this.item = await this.host.readCache(lib, slug);
+    const item = await this.host.readCache(lib, slug);
+    if (seq !== this.renderSeq) return;
+    el.empty();
+    this.item = item;
     if (!this.item) {
       el.createDiv({ cls: "ui-shelf-message", text: t("preview.missing", { ref }) });
       return;

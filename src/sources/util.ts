@@ -4,6 +4,19 @@
  *   const X = forwardRef(…); export { X, Y as Z }      ← magicui、shadcn 官方组件常见
  *   export default X
  */
+/**
+ * Build / tooling config that belongs to the project, not to the component: kept so the code
+ * viewer shows the whole project, but never compiled into a preview or scanned for dependencies.
+ */
+export const isToolingFile = (path: string) =>
+  /(^|\/)(vite|vitest|next|nuxt|astro|svelte|tailwind|postcss|eslint|prettier|babel|webpack|rollup|tsup|jest|playwright)\.config\.[cm]?[jt]s$/.test(path);
+
+/** Source that runs in the preview: JS / TS modules that are not tooling config. */
+export const isRuntimeCode = (path: string) => /\.[cm]?[jt]sx?$/.test(path) && !isToolingFile(path);
+
+/** Project files kept for reading only (package.json, tsconfig, index.html, README …). */
+export const isProjectFile = (path: string) => /\.(json|html|md|ya?ml|toml)$/.test(path) || isToolingFile(path);
+
 export function componentExports(code: string): string[] {
   const fns: string[] = [];
   const others: string[] = [];

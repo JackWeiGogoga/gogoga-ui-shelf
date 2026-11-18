@@ -5,6 +5,7 @@ import builtinKeys from "inline:builtin-keys";
 import runtimeJs from "inline:runtime";
 import tailwindJs from "inline:tailwind";
 import { balanceBraces } from "../core/css";
+import { isRuntimeCode } from "../sources/util";
 import type { PreviewSpec } from "../types";
 
 export { balanceBraces };
@@ -205,7 +206,7 @@ export function compileModules(files: { path: string; code: string }[]): { modul
   const modules: Record<string, string> = {};
   const remote = new Set<string>();
   for (const f of files) {
-    if (!/\.[jt]sx?$/.test(f.path)) continue;
+    if (!isRuntimeCode(f.path)) continue;
     const isTs = /\.tsx?$/.test(f.path);
     const code = transform(f.code, {
       transforms: isTs ? ["typescript", "jsx", "imports"] : ["jsx", "imports"],

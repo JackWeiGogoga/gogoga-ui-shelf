@@ -2,7 +2,7 @@
  * 从组件源码推出 agent 接入时要知道的事：样式方案、npm 依赖、前置条件、文件清单、导出名、
  * props、最小用法示例。纯函数（不引 obsidian），smoke 里直接测。
  */
-import { propChoices, propsInfo, type PropChoice } from "../sources/util";
+import { isRuntimeCode, propChoices, propsInfo, type PropChoice } from "../sources/util";
 import type { ComponentItem } from "../types";
 
 export type Styling = "tailwind-v4" | "tailwind" | "css-modules" | "css" | "none";
@@ -89,6 +89,7 @@ export function analyze(item: ComponentItem): Integration {
   const deps = new Set<string>();
   let usesCn = false;
   for (const f of p.files) {
+    if (!isRuntimeCode(f.path)) continue;
     for (const spec of importsOf(f.code)) {
       if (spec.startsWith(".") || spec.endsWith(".css")) continue;
       if (spec.startsWith("@/") || spec.startsWith("~/")) {

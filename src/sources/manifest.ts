@@ -19,7 +19,7 @@
 import type { ComponentItem, LibraryConfig, LibraryProfile, PreviewSpec, SourceAdapter, SourceKind, SyncContext } from "../types";
 import { VOCABULARY, tagOf } from "../core/tags";
 import { unresolvedAliases } from "./shadcn";
-import { demoProps, pascal, pickExport } from "./util";
+import { demoProps, isProjectFile, isRuntimeCode, pascal, pickExport } from "./util";
 
 const KNOWN_TAGS = new Set(VOCABULARY.map(tagOf));
 const knownTag = (t: string) => KNOWN_TAGS.has(t.replace(/^#/, ""));
@@ -242,7 +242,8 @@ function reactSpec(
   exportHint?: string,
   tailwindCss?: string,
 ): PreviewSpec | null {
-  const code = files.filter((f) => /\.[jt]sx?$/.test(f.path) || f.path.endsWith(".css"));
+  const code = files.filter((f) => isRuntimeCode(f.path) || f.path.endsWith(".css"));
+  const project = files.filter((f) => isProjectFile(f.path));
   let entry = code.find((f) => /\.[jt]sx$/.test(f.path));
   if (entryHint) {
     let re: RegExp | null = null;
@@ -258,7 +259,7 @@ function reactSpec(
   if (!exportName) return null;
   return {
     kind: "react",
-    files: code.filter((f) => !(tailwindCss != null && f.path.endsWith(".css"))),
+    files: [...code.filter((f) => !(tailwindCss != null && f.path.endsWith(".css"))), ...project],
     entry: entry.path,
     exportName,
     props: demoProps(entry.code, exportName, title),

@@ -30,6 +30,8 @@ export interface BuildOptions {
   capture?: boolean;
   /** 全屏弹窗里：<html> 带 ui-shelf-fullscreen，页面撑满窗口（整页应用可以据此铺满） */
   fullscreen?: boolean;
+  /** 画廊缩略卡片：页面不出滚动条，滚轮交给画廊 */
+  tile?: boolean;
 }
 
 /** `</script>` 之类会提前截断内联脚本，统一转义 `<`。 */
@@ -195,6 +197,7 @@ const BASE_CSS = (o: BuildOptions) => `
   }
   #root { display: contents; }
   html.ui-shelf-fullscreen, html.ui-shelf-fullscreen body { height: 100%; }
+  html.ui-shelf-tile, html.ui-shelf-tile body { height: 100%; overflow: hidden; }
   .ui-shelf-error {
     position: fixed; left: 8px; right: 8px; bottom: 8px; margin: 0; z-index: 2147483647;
     padding: 8px 10px; border-radius: 6px; font: 12px/1.5 ui-monospace, monospace;
@@ -226,7 +229,7 @@ export function compileModules(files: { path: string; code: string }[]): { modul
 
 /** 生成整页 srcdoc。 */
 export function buildSrcdoc(spec: PreviewSpec, o: BuildOptions): string {
-  const cls = [o.theme === "dark" ? "dark" : "", o.fullscreen ? "ui-shelf-fullscreen" : ""].filter(Boolean).join(" ");
+  const cls = [o.theme === "dark" ? "dark" : "", o.fullscreen ? "ui-shelf-fullscreen" : "", o.tile ? "ui-shelf-tile" : ""].filter(Boolean).join(" ");
   const htmlAttrs = `data-theme="${o.theme}" class="${cls}" style="color-scheme:${o.theme}"`;
   // 有些组件直接读 process.env（Next.js 习惯），浏览器里没有
   const base = spec.assetBase && /^https?:\/\//.test(spec.assetBase) ? `<base href="${attr(spec.assetBase)}">` : "";

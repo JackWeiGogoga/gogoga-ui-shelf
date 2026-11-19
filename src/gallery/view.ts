@@ -10,6 +10,7 @@ export const GALLERY_VIEW = "ui-shelf-gallery";
 export const GALLERY_EXT = "uishelf";
 
 type Theme = "auto" | "light" | "dark";
+type Layout = "grid" | "list";
 
 interface Entry {
   key: string;
@@ -34,11 +35,17 @@ interface State {
   type: string;
   freeOnly: boolean;
   theme: Theme;
+  /** 网格（缩略卡片，点开看详情）还是单列大图 */
+  view: Layout;
 }
 
 const PAGE = 24;
+/** 网格卡片里预览按这个宽度渲染再缩小 */
+const TILE_WIDTH = 600;
+/** 网格里一次最多同时开始加载几个预览，其余排队 */
+const MOUNT_BATCH = 3;
 
-export const DEFAULT_STATE: State = { query: "", lib: "", type: "", freeOnly: false, theme: "auto" };
+export const DEFAULT_STATE: State = { query: "", lib: "", type: "", freeOnly: false, theme: "auto", view: "grid" };
 
 /** frontmatter 里的值转字符串：只认字符串 / 数字，其他（日期被 YAML 解析成对象等）用后备值 */
 const str = (v: unknown, fallback: string): string => (typeof v === "string" || typeof v === "number" ? String(v) : fallback);
@@ -68,6 +75,17 @@ export class GalleryView extends TextFileView {
   private sentinel: HTMLElement | null = null;
   private blocks = new Map<HTMLElement, PreviewBlock>();
   private cardEntry = new WeakMap<HTMLElement, Entry>();
+  /** 网格卡片用的观察器：预加载范围比单列小，一屏本来就有十几个 */
+  private tileObserver: IntersectionObserver | null = null;
+  private gridEl: HTMLElement | null = null;
+  /** 等待挂载的网格卡片（进了视口，还没轮到） */
+  private mountQueue: HTMLElement[] = [];
+  private mountTimer = 0;
+  /** 右侧详情抽屉：正在看的组件 key，空 = 没打开 */
+  private peekKey = "";
+  private drawerEl: HTMLElement | null = null;
+  private scrimEl: HTMLElement | null = null;
+  private drawerBlock: PreviewBlock | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -104,6 +122,7 @@ export class GalleryView extends TextFileView {
       ...pick("type", isStr),
       ...pick("freeOnly", (v) => typeof v === "boolean"),
       ...pick("theme", (v) => v === "auto" || v === "light" || v === "dark"),
+      ...pick("view", (v) => v === "grid" || v === "list"),
     };
     if (!this.listEl) return;
     this.applyTheme();
@@ -127,6 +146,10 @@ export class GalleryView extends TextFileView {
       root: main,
       rootMargin: "600px 0px",
     });
+    this.tileObserver = new IntersectionObserver((records) => this.onIntersect(records), {
+      root: main,
+      rootMargin: "200px 0px",
+    });
     this.moreObserver = new IntersectionObserver(
       (records) => {
         if (records.some((r) => r.isIntersecting)) this.renderMore();
@@ -136,6 +159,19 @@ export class GalleryView extends TextFileView {
 
     this.registerDomEvent(root, "keydown", (e: KeyboardEvent) => {
       const typing = e.target instanceof HTMLInputElement;
+      if (this.peekKey && !typing) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          this.closePeek();
+          return;
+        }
+        const dir = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0;
+        if (dir) {
+          e.preventDefault();
+          this.stepPeek(dir);
+          return;
+        }
+      }
       if (e.key === "/" && !typing) {
         e.preventDefault();
         this.searchEl.focus();
@@ -158,7 +194,10 @@ export class GalleryView extends TextFileView {
   async onClose(): Promise<void> {
     await super.onClose();
     this.observer?.disconnect();
+    this.tileObserver?.disconnect();
     this.moreObserver?.disconnect();
+    window.clearTimeout(this.mountTimer);
+    this.closePeek();
     for (const b of this.blocks.values()) this.removeChild(b);
     this.blocks.clear();
   }
@@ -234,6 +273,7 @@ export class GalleryView extends TextFileView {
       e.description = item.description.replace(/\s+/g, " ").trim();
       this.index(e);
       this.listEl.querySelector<HTMLElement>(`[data-key="${CSS.escape(e.key)}"] .usg-desc`)?.setText(e.description);
+      if (this.peekKey === e.key) this.drawerEl?.querySelector(".usg-desc")?.setText(e.description);
     }
     if (this.state.query) this.renderList();
   }
@@ -404,6 +444,7 @@ export class GalleryView extends TextFileView {
     this.contentEl.toggleClass("is-dark", dark);
     this.contentEl.toggleClass("is-light", !dark);
     for (const b of this.blocks.values()) b.applyTheme();
+    this.drawerBlock?.applyTheme();
   }
 
   // ── 列表
@@ -412,10 +453,18 @@ export class GalleryView extends TextFileView {
     for (const b of this.blocks.values()) this.removeChild(b);
     this.blocks.clear();
     this.observer?.disconnect();
+    this.tileObserver?.disconnect();
     this.moreObserver?.disconnect();
+    this.mountQueue = [];
+    window.clearTimeout(this.mountTimer);
+    this.mountTimer = 0;
     this.listEl.empty();
+    this.gridEl = null;
+    const grid = this.state.view === "grid";
+    this.listEl.toggleClass("is-grid", grid);
 
     this.filtered = this.entries.filter((e) => this.matches(e));
+    if (this.peekKey && !this.filtered.some((e) => e.key === this.peekKey)) this.closePeek();
     const head = this.listEl.createDiv({ cls: "usg-list-head" });
     head.createDiv({ cls: "usg-count", text: t("gallery.count", { n: this.filtered.length }) });
     const chips = head.createDiv({ cls: "usg-chips" });
@@ -435,6 +484,7 @@ export class GalleryView extends TextFileView {
       chip(this.state.type === "-" ? t("gallery.untyped") : info ? (locale() === "zh" ? info.zh : info.en) : this.state.type, { type: "" });
     }
     if (this.state.freeOnly) chip(t("gallery.freeOnly"), { freeOnly: false });
+    this.renderLayoutSwitch(head);
 
     if (!this.filtered.length) {
       this.listEl.createDiv({ cls: "usg-empty", text: t("gallery.empty") });
@@ -442,7 +492,27 @@ export class GalleryView extends TextFileView {
     }
     this.shown = 0;
     this.sentinel = null;
+    if (grid) this.gridEl = this.listEl.createDiv({ cls: "usg-grid" });
     this.renderMore();
+  }
+
+  private renderLayoutSwitch(parent: HTMLElement): void {
+    const seg = parent.createDiv({ cls: "usg-layout" });
+    const opts: [Layout, string, string][] = [
+      ["grid", "layout-grid", t("gallery.viewGrid")],
+      ["list", "layout-list", t("gallery.viewList")],
+    ];
+    for (const [mode, name, label] of opts) {
+      const b = seg.createEl("button", { cls: "usg-layout-btn", attr: { "aria-label": label } });
+      icon(b.createSpan(), name);
+      b.createSpan({ text: label });
+      b.toggleClass("is-active", this.state.view === mode);
+      b.addEventListener("click", () => {
+        if (this.state.view === mode) return;
+        this.closePeek();
+        this.update({ view: mode });
+      });
+    }
   }
 
   private renderMore(): void {
@@ -452,7 +522,10 @@ export class GalleryView extends TextFileView {
       this.sentinel.remove();
     }
     const end = Math.min(this.filtered.length, this.shown + PAGE);
-    for (let i = this.shown; i < end; i++) this.renderSection(this.filtered[i], i);
+    for (let i = this.shown; i < end; i++) {
+      if (this.gridEl) this.renderTile(this.gridEl, this.filtered[i], i);
+      else this.renderSection(this.filtered[i], i);
+    }
     this.shown = end;
     if (end < this.filtered.length) {
       this.sentinel = this.listEl.createDiv({ cls: "usg-sentinel" });
@@ -481,12 +554,62 @@ export class GalleryView extends TextFileView {
     this.observer?.observe(card);
   }
 
+  private renderTile(parent: HTMLElement, e: Entry, i: number): void {
+    const tile = parent.createEl("article", { cls: "usg-tile", attr: { "data-key": e.key } });
+    tile.toggleClass("is-peek", e.key === this.peekKey);
+    const open = () => this.openPeek(e.key);
+
+    const head = tile.createDiv({ cls: "usg-tile-head" });
+    const line = head.createDiv({ cls: "usg-tile-line" });
+    line.createSpan({ cls: "usg-tile-title", text: e.title });
+    line.createSpan({ cls: "usg-num", text: String(i + 1).padStart(2, "0") });
+    head.createDiv({ cls: "usg-desc", text: e.description });
+    head.addEventListener("click", open);
+
+    const well = tile.createDiv({ cls: "usg-well" });
+    this.cardEntry.set(well, e);
+    this.tileObserver?.observe(well);
+
+    const foot = tile.createDiv({ cls: "usg-tile-foot" });
+    const lib = foot.createEl("button", { cls: "usg-pill", text: e.libName, attr: { "aria-label": t("gallery.filterLib") } });
+    lib.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      this.update({ lib: this.state.lib === e.lib ? "" : e.lib });
+    });
+    foot.createSpan({ cls: `usg-pill usg-tier is-${e.tier}`, text: e.tier === "pro" ? t("preview.pro") : t("preview.free") });
+    const zh = locale() === "zh";
+    const types = e.types.slice(0, 2).map((x) => {
+      const info = TYPE_INFO.get(x);
+      return info ? (zh ? info.zh : info.en) : x;
+    });
+    if (types.length) foot.createSpan({ cls: "usg-tile-types", text: types.join(" · ") });
+    foot.addEventListener("click", open);
+  }
+
   private onIntersect(records: IntersectionObserverEntry[]): void {
     for (const r of records) {
       const card = r.target as HTMLElement;
-      if (r.isIntersecting) this.mountCard(card);
-      else this.unmountCard(card);
+      if (r.isIntersecting) {
+        if (card.hasClass("usg-well")) this.enqueueMount(card);
+        else this.mountCard(card);
+      } else {
+        this.mountQueue = this.mountQueue.filter((c) => c !== card);
+        this.unmountCard(card);
+      }
     }
+  }
+
+  /** 网格一屏十几个预览：分批挂载，免得同时编译、同时拉一堆 esm.sh 依赖 */
+  private enqueueMount(card: HTMLElement): void {
+    if (this.blocks.has(card) || this.mountQueue.includes(card)) return;
+    this.mountQueue.push(card);
+    if (!this.mountTimer) this.drainMounts();
+  }
+
+  private drainMounts(): void {
+    const batch = this.mountQueue.splice(0, MOUNT_BATCH);
+    for (const card of batch) this.mountCard(card);
+    this.mountTimer = this.mountQueue.length ? window.setTimeout(() => this.drainMounts(), 160) : 0;
   }
 
   private mountCard(card: HTMLElement): void {
@@ -495,8 +618,10 @@ export class GalleryView extends TextFileView {
     if (!e) return;
     card.empty();
     const host = card.createDiv();
+    const tile = card.hasClass("usg-well");
     const block = new PreviewBlock(host, this.plugin, `${e.lib}/${e.slug}`, {
-      compact: true,
+      compact: !tile,
+      tile: tile ? TILE_WIDTH : undefined,
       cover: e.cover,
       theme: () => (this.galleryDark() ? "dark" : "light"),
       onOpenNote: () => this.openNote(e),
@@ -509,10 +634,97 @@ export class GalleryView extends TextFileView {
   private unmountCard(card: HTMLElement): void {
     const block = this.blocks.get(card);
     if (!block) return;
-    card.style.minHeight = `${card.offsetHeight}px`;
+    if (!card.hasClass("usg-well")) card.style.minHeight = `${card.offsetHeight}px`;
     this.removeChild(block);
     this.blocks.delete(card);
     card.empty();
+  }
+
+  // ── 详情抽屉（网格视图）
+
+  private openPeek(key: string): void {
+    const e = this.filtered.find((x) => x.key === key);
+    if (!e) return;
+    this.peekKey = key;
+    this.listEl.querySelectorAll(".usg-tile").forEach((x) => x.toggleClass("is-peek", (x as HTMLElement).dataset.key === key));
+    this.listEl.querySelector(`.usg-tile[data-key="${CSS.escape(key)}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
+    if (!this.drawerEl) {
+      this.scrimEl = this.contentEl.createDiv({ cls: "usg-scrim" });
+      this.scrimEl.addEventListener("click", () => this.closePeek());
+      this.drawerEl = this.contentEl.createDiv({ cls: "usg-drawer", attr: { role: "dialog", tabindex: "-1" } });
+      requestAnimationFrame(() => {
+        this.scrimEl?.addClass("is-open");
+        this.drawerEl?.addClass("is-open");
+      });
+    }
+    const d = this.drawerEl;
+    if (this.drawerBlock) this.removeChild(this.drawerBlock);
+    this.drawerBlock = null;
+    d.empty();
+
+    const i = this.filtered.indexOf(e);
+    const bar = d.createDiv({ cls: "usg-drawer-bar" });
+    const btn = (name: string, label: string, run: () => void, disabled = false) => {
+      const b = bar.createEl("button", { cls: "usg-icon-btn", attr: { "aria-label": label } });
+      icon(b, name);
+      b.disabled = disabled;
+      b.addEventListener("click", run);
+      return b;
+    };
+    btn("chevron-up", t("gallery.prev"), () => this.stepPeek(-1), i <= 0);
+    btn("chevron-down", t("gallery.next"), () => this.stepPeek(1), i >= this.filtered.length - 1);
+    bar.createSpan({ cls: "usg-drawer-pos", text: `${i + 1} / ${this.filtered.length}` });
+    bar.createDiv({ cls: "usg-grow" });
+    const note = bar.createEl("button", { cls: "usg-ghost" });
+    icon(note.createSpan(), "file-text");
+    note.createSpan({ text: t("gallery.openNote") });
+    note.addEventListener("click", () => this.openNote(e));
+    btn("x", t("gallery.close"), () => this.closePeek());
+
+    const body = d.createDiv({ cls: "usg-drawer-body" });
+    const head = body.createDiv({ cls: "usg-drawer-head" });
+    head.createDiv({ cls: "usg-drawer-title", text: e.title });
+    head.createDiv({ cls: "usg-desc", text: e.description });
+    const meta = head.createDiv({ cls: "usg-head-meta" });
+    meta.createSpan({ cls: "usg-pill", text: e.libName });
+    meta.createSpan({ cls: `usg-pill usg-tier is-${e.tier}`, text: e.tier === "pro" ? t("preview.pro") : t("preview.free") });
+    const zh = locale() === "zh";
+    for (const x of e.types) {
+      const info = TYPE_INFO.get(x);
+      meta.createSpan({ cls: "usg-pill", text: info ? (zh ? info.zh : info.en) : x });
+    }
+
+    const card = body.createDiv({ cls: "usg-card usg-drawer-card" });
+    const block = new PreviewBlock(card.createDiv(), this.plugin, `${e.lib}/${e.slug}`, {
+      compact: true,
+      cover: e.cover,
+      theme: () => (this.galleryDark() ? "dark" : "light"),
+      onOpenNote: () => this.openNote(e),
+    });
+    this.drawerBlock = block;
+    this.addChild(block);
+    d.focus({ preventScroll: true });
+  }
+
+  private stepPeek(dir: number): void {
+    const i = this.filtered.findIndex((x) => x.key === this.peekKey);
+    const next = this.filtered[i + dir];
+    if (!next) return;
+    // 下一个还没渲染出来（分页）：先把卡片补出来，抽屉才能定位到它
+    while (this.shown <= i + dir && this.shown < this.filtered.length) this.renderMore();
+    this.openPeek(next.key);
+  }
+
+  private closePeek(): void {
+    if (this.drawerBlock) this.removeChild(this.drawerBlock);
+    this.drawerBlock = null;
+    this.peekKey = "";
+    this.drawerEl?.remove();
+    this.scrimEl?.remove();
+    this.drawerEl = null;
+    this.scrimEl = null;
+    this.listEl?.querySelectorAll(".usg-tile.is-peek").forEach((x) => x.removeClass("is-peek"));
   }
 
   /** 在新标签页打开笔记，画廊留在原处 */

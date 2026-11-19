@@ -153,6 +153,7 @@
   --usg-shadow: 0 1px 2px rgba(9, 9, 11, 0.04), 0 8px 24px -12px rgba(9, 9, 11, 0.08);
   --usg-accent: #4f46e5;
   container-type: inline-size;
+  position: relative;
   display: flex;
   height: 100%;
   padding: 0 !important;
@@ -607,6 +608,269 @@
   object-fit: contain;
 }
 
+/* 网格视图：缩略卡片 */
+.usg-list.is-grid {
+  max-width: 1680px;
+  padding: 20px 32px 80px;
+}
+.usg-list-head .usg-layout {
+  display: inline-flex;
+  margin-left: auto;
+  padding: 2px;
+  border: 1px solid var(--usg-border);
+  border-radius: 9px;
+  background: var(--usg-input);
+}
+.ui-shelf-gallery .usg-layout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 7px;
+  color: var(--usg-muted);
+  font-size: 12.5px;
+}
+.ui-shelf-gallery .usg-layout-btn:hover {
+  color: var(--usg-text);
+}
+.ui-shelf-gallery .usg-layout-btn.is-active {
+  background: var(--usg-active);
+  color: var(--usg-text);
+}
+.usg-layout-btn > span:first-child {
+  display: flex;
+}
+.usg-layout-btn svg {
+  width: 13px;
+  height: 13px;
+}
+.usg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+  margin-top: 10px;
+}
+.usg-tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 16px 16px 12px;
+  border: 1px solid var(--usg-border);
+  border-radius: 16px;
+  background: var(--usg-card);
+  box-shadow: var(--usg-shadow);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.usg-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--usg-shadow), 0 0 0 1px var(--usg-dash);
+}
+.usg-tile.is-peek {
+  box-shadow: var(--usg-shadow), 0 0 0 1.5px var(--usg-accent);
+}
+.usg-tile-head,
+.usg-tile-foot {
+  cursor: pointer;
+}
+.usg-tile-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.usg-tile-title {
+  overflow: hidden;
+  color: var(--usg-text);
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.usg-tile-head:hover .usg-tile-title {
+  color: var(--usg-accent);
+}
+.usg-tile .usg-desc {
+  display: -webkit-box;
+  min-height: 2.9em;
+  margin-top: 4px;
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.usg-well {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  margin: 12px 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--usg-border);
+  border-radius: 10px;
+  background: var(--usg-bg);
+}
+.usg-well > div,
+.usg-well .ui-shelf-preview.is-tile {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+}
+.ui-shelf-preview.is-tile .ui-shelf-stage {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.ui-shelf-preview.is-tile .ui-shelf-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+.ui-shelf-preview.is-tile .ui-shelf-cover-box {
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  padding: 12px;
+}
+.ui-shelf-preview.is-tile .ui-shelf-cover-box img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+}
+.ui-shelf-preview.is-tile .ui-shelf-message {
+  padding: 0 16px;
+}
+.usg-tile-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.usg-tile-types {
+  overflow: hidden;
+  margin-left: 2px;
+  color: var(--usg-faint);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 详情抽屉 */
+.usg-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(9, 9, 11, 0.12);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.is-dark .usg-scrim {
+  background: rgba(0, 0, 0, 0.4);
+}
+.usg-scrim.is-open {
+  opacity: 1;
+}
+.usg-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 72%);
+  border-left: 1px solid var(--usg-border);
+  background: var(--usg-bg);
+  box-shadow: -24px 0 48px -24px rgba(0, 0, 0, 0.25);
+  outline: none;
+  transform: translateX(24px);
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.usg-drawer.is-open {
+  transform: none;
+  opacity: 1;
+}
+.usg-drawer-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 8px 12px;
+  border-bottom: 1px dashed var(--usg-dash);
+}
+.ui-shelf-gallery .usg-icon-btn {
+  display: flex;
+  padding: 5px;
+  border-radius: 7px;
+  color: var(--usg-muted);
+}
+.ui-shelf-gallery .usg-icon-btn:hover:not(:disabled) {
+  background: var(--usg-hover);
+  color: var(--usg-text);
+}
+.ui-shelf-gallery .usg-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.usg-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.usg-drawer-pos {
+  margin-left: 6px;
+  color: var(--usg-faint);
+  font-family: var(--font-monospace);
+  font-size: 12px;
+}
+.usg-grow {
+  flex: 1;
+}
+.ui-shelf-gallery .usg-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--usg-border);
+  border-radius: 8px;
+  color: var(--usg-text);
+  font-size: 12.5px;
+}
+.ui-shelf-gallery .usg-ghost:hover {
+  background: var(--usg-hover);
+}
+.usg-ghost > span:first-child {
+  display: flex;
+}
+.usg-ghost svg {
+  width: 13px;
+  height: 13px;
+}
+.usg-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 22px 28px 40px;
+}
+.usg-drawer-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.usg-drawer-title {
+  font-size: 20px;
+  font-weight: 650;
+}
+.usg-drawer-head .usg-head-meta {
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.usg-drawer-card {
+  min-height: 360px;
+}
+
 /* 窄屏：侧栏收到顶部，筛选变成可横向滑动的一行 */
 @container (max-width: 760px) {
   .ui-shelf-gallery {
@@ -639,8 +903,19 @@
     border-radius: 999px;
     font-size: 12.5px;
   }
-  .usg-list {
+  .usg-list,
+  .usg-list.is-grid {
     padding: 12px 16px 60px;
+  }
+  .usg-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .usg-drawer {
+    width: 100%;
+  }
+  .usg-drawer-body {
+    padding: 16px;
   }
   .usg-head {
     flex-direction: column;
@@ -706,3 +981,6 @@
 .ui-shelf-code-pre .token.punctuation { color: var(--code-punctuation); }
 .ui-shelf-code-where { display: flex; align-items: center; gap: 8px; flex: none; padding: 6px 16px; border-top: 1px solid var(--background-modifier-border); color: var(--text-faint); font-size: var(--font-ui-smaller); }
 .ui-shelf-code-where code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: inherit; }
+
+/* 抽屉里预览的操作按钮常显 */
+.usg-drawer .ui-shelf-float { opacity: 1; }

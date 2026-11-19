@@ -24,6 +24,12 @@ export interface PreviewOptions {
   onOpenNote?: () => void;
   /** 由外部（画廊）统一决定明暗；给了就不显示单块的主题按钮，iframe 背景透明，透出画廊卡片底色 */
   theme?: () => "light" | "dark";
+  /**
+   * 画廊网格里的小卡片：预览按这个虚拟宽度（px）渲染整页，再整体缩小到卡片大小，
+   * 看到的是桌面布局的缩略效果，而不是被挤窄的样子。舞台大小由外面的 CSS 定（固定比例），
+   * 不跟内容自动长高，也不显示浮动按钮和变体切换条。
+   */
+  tile?: number;
 }
 
 /** workspace 事件：某个组件的缓存内容变了（参数是 "lib/slug"），打开着的预览块据此重新渲染 */
@@ -58,12 +64,13 @@ export class PreviewBlock extends MarkdownRenderChild {
 
   onload(): void {
     this.containerEl.addClass("ui-shelf-preview");
-    if (this.opts.compact) this.containerEl.addClass("is-compact");
+    if (this.opts.compact || this.opts.tile) this.containerEl.addClass("is-compact");
+    if (this.opts.tile) this.containerEl.addClass("is-tile");
     void this.render();
     this.registerDomEvent(window, "message", (e: MessageEvent) => {
       if (!this.frame || e.source !== this.frame.contentWindow) return;
       const d = e.data as { uiShelf?: string; height?: number } | null;
-      if (d?.uiShelf === "height" && typeof d.height === "number") {
+      if (d?.uiShelf === "height" && typeof d.height === "number" && !this.opts.tile) {
         this.frame.style.height = `${Math.min(MAX_H, Math.max(MIN_H, d.height))}px`;
       }
     });
@@ -113,10 +120,12 @@ export class PreviewBlock extends MarkdownRenderChild {
       el.createDiv({ cls: "ui-shelf-message", text: t("preview.missing", { ref }) });
       return;
     }
-    if (!this.opts.compact) this.renderToolbar(el, this.item);
+    const compact = this.opts.compact || !!this.opts.tile;
+    if (!compact) this.renderToolbar(el, this.item);
     const stage = el.createDiv({ cls: "ui-shelf-stage" });
     this.mount(stage);
-    if (this.opts.compact) this.renderFloating(el, this.item);
+    if (this.opts.tile) return;
+    if (compact) this.renderFloating(el, this.item);
     this.renderVariants(el, this.item);
   }
 
@@ -218,6 +227,30 @@ export class PreviewBlock extends MarkdownRenderChild {
     return p.kind === "react" && Object.keys(this.overrides).length ? { ...p, props: { ...(p.props ?? {}), ...this.overrides } } : p;
   }
 
+  private tileObserver: ResizeObserver | null = null;
+
+  /** 缩略渲染：iframe 宽度固定为虚拟宽度，高度按舞台比例换算，再 scale 到舞台大小 */
+  private fitTile(stage: HTMLElement, frame: HTMLIFrameElement, width: number): void {
+    stage.addClass("is-tile");
+    frame.style.width = `${width}px`;
+    const fit = () => {
+      const w = stage.clientWidth;
+      const h = stage.clientHeight;
+      if (!w || !h) return;
+      const k = w / width;
+      frame.style.height = `${Math.round(h / k)}px`;
+      frame.style.transform = `scale(${k})`;
+    };
+    this.tileObserver?.disconnect();
+    this.tileObserver = new ResizeObserver(fit);
+    this.tileObserver.observe(stage);
+    fit();
+  }
+
+  onunload(): void {
+    this.tileObserver?.disconnect();
+  }
+
   private remount(): void {
     const stage = this.containerEl.querySelector<HTMLElement>(".ui-shelf-stage");
     if (stage) this.mount(stage);
@@ -227,7 +260,7 @@ export class PreviewBlock extends MarkdownRenderChild {
     stage.empty();
     const item = this.item;
     if (!item) return;
-    if (!item.preview && this.opts.compact) {
+    if (!item.preview && (this.opts.compact || this.opts.tile)) {
       // 画廊里不嵌官方整页（太重，一屏好几个）：有封面放封面，没有就给个入口
       this.frame = null;
       const box = stage.createDiv({ cls: "ui-shelf-cover-box" });
@@ -250,13 +283,14 @@ export class PreviewBlock extends MarkdownRenderChild {
       return;
     }
     frame.setAttribute("sandbox", "allow-scripts");
-    frame.style.height = `${MIN_H}px`;
+    if (this.opts.tile) this.fitTile(stage, frame, this.opts.tile);
+    else frame.style.height = `${MIN_H}px`;
     const dark = this.isDark();
     const solid = !this.opts.theme && this.mode !== "auto";
     const background = solid ? (dark ? "#0b0b0c" : "#ffffff") : "transparent";
     stage.toggleClass("is-solid", solid);
     try {
-      frame.srcdoc = buildSrcdoc(this.previewSpec(item), { theme: dark ? "dark" : "light", background });
+      frame.srcdoc = buildSrcdoc(this.previewSpec(item), { theme: dark ? "dark" : "light", background, tile: !!this.opts.tile });
     } catch (e) {
       stage.empty();
       stage.createEl("pre", { cls: "ui-shelf-error", text: (e as Error).message });

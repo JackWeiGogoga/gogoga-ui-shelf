@@ -8,7 +8,7 @@ import { canOpenLocally, existsOnDisk, fileManagerName, isAbsolutePath, openInVS
 export interface CodePlaces {
   /** the library author's / your own project folder (`source` when it is a local path) */
   project?: string;
-  /** the plugin's expanded copy: <vault>/.obsidian/plugins/…/code/<lib>/<slug> */
+  /** the plugin's expanded copy: ~/.gogoga/ui-shelf/<vault>/code/<lib>/<slug> (desktop; outside the vault) */
   cache?: string;
 }
 

@@ -70,7 +70,7 @@ Commands an agent (or you) can run: `sync-all`, `sync-sources`, `sync-latest-sou
 
 - Component notes live in `<folder>/components/<library>/<slug>.md`. The text between `<!-- ui-shelf:start -->` and `<!-- ui-shelf:end -->` is rewritten on sync; everything else, and your tags, are yours.
 - `catalog.md`, `catalog.json`, `Tag vocabulary.md`, `agent/SKILL.md` and `reports/last-sync.md` are rewritten on every sync. `UI Shelf.md` and `Components.base` are created once and then left to you.
-- Free components' code is cached in the plugin folder (`code/<library>/<slug>/`), mirroring the paths the library publishes.
+- Free components' code is cached outside the vault on desktop, in `~/.gogoga/ui-shelf/<vault>/` (`code/<library>/<slug>/` mirrors the paths the library publishes; `cache/` holds the raw data). These are thousands of small files: kept out of the vault, they are not synced to your phone and do not slow down opening the vault there. On mobile they stay in the plugin folder.
 
 ## Development
 

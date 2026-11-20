@@ -8,7 +8,10 @@ export interface SkillVars {
   vaultName: string;
   vaultPath: string;
   root: string;
-  pluginDir: string;
+  /** 组件代码的根目录 */
+  codeRoot: string;
+  /** codeRoot 已经是绝对路径（电脑端放在 vault 外面） */
+  codeRootAbsolute: boolean;
 }
 
 export function skillMarkdown(v: SkillVars): string {
@@ -31,7 +34,7 @@ Everything lives under \`${abs(v.root)}/\`.
 | Tag vocabulary (with Chinese synonyms) | \`${abs(`${v.root}/Tag vocabulary.md`)}\` |
 | Component notes | \`${abs(`${v.root}/components/<library>/<slug>.md`)}\` |
 | Library notes (license, pricing, install) | \`${abs(`${v.root}/libraries/<library>.md`)}\` |
-| Local source code of free components | \`${abs(`${v.pluginDir}/code/<library>/<slug>/`)}\` |
+| Local source code of free components | \`${v.codeRootAbsolute ? v.codeRoot : abs(v.codeRoot)}/<library>/<slug>/\` |
 | Library source files you can write | \`${abs(`${v.root}/sources/<id>.source.json`)}\` |
 | Result of the last sync / check | \`${abs(`${v.root}/reports/last-sync.md`)}\` |
 

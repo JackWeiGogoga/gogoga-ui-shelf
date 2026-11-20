@@ -20,7 +20,7 @@ import { analyze } from "./integration";
 import { autoTags, unknownTags, vocabularyMarkdown } from "./tags";
 
 /** 笔记格式版本：改了机器区 / frontmatter 的写法就加一，所有笔记会重写一次 */
-const FORMAT = 6;
+const FORMAT = 7;
 
 export interface SyncHost {
   app: App;
@@ -28,7 +28,7 @@ export interface SyncHost {
   items: Record<string, ItemState>;
   writeCache(lib: string, slug: string, item: ComponentItem): Promise<void>;
   readCache(lib: string, slug: string): Promise<ComponentItem | null>;
-  /** 组件代码目录（vault 相对路径） */
+  /** 组件代码目录（电脑端是 vault 外面的绝对路径） */
   codeDir(lib: string, slug: string): string;
   /** vault 的绝对路径（桌面端），写进 catalog.json 给 agent 拼绝对路径 */
   vaultBase: string;

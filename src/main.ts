@@ -13,6 +13,7 @@ import { compileModules, pkgOf, setEsmPeers } from "./preview/build";
 import { ShelfSettingTab } from "./settings-tab";
 import { PRESETS } from "./sources";
 import { manifestToLibrary, parseManifest } from "./sources/manifest";
+import { makeStore, migrateIntoStore, type Store } from "./core/store";
 import type { ComponentItem, ItemState, LibraryConfig } from "./types";
 
 type Scope = "all" | "files" | "latest" | LibraryConfig[];
@@ -55,6 +56,11 @@ export default class UiShelfPlugin extends Plugin {
     }
 
     setEsmPeers(this.data.esmPeers);
+    this.store = makeStore(this.app.vault.adapter, this.app.vault.getName(), this.pluginDir());
+    // 老版本写在插件目录（会跟着 vault 同步）里的 cache/、code/ 搬出去
+    this.app.workspace.onLayoutReady(() => {
+      void migrateIntoStore(this.store, this.vaultBase(), this.pluginDir()).catch((e) => console.error("[ui-shelf] move cache out of vault", e));
+    });
 
     this.registerMarkdownCodeBlockProcessor("ui-preview", (source, el, ctx) => {
       ctx.addChild(new PreviewBlock(el, this, source));
@@ -96,19 +102,22 @@ export default class UiShelfPlugin extends Plugin {
     await this.saveData(this.data);
   }
 
-  // ── 源码缓存：插件目录下 cache/<lib>/<slug>.json（只缓存免费组件的公开代码）
-  //    同时把代码按原路径展开到 code/<lib>/<slug>/，给 agent 直接读
+  // ── 源码缓存：<store>/cache/<lib>/<slug>.json（只缓存免费组件的公开代码）
+  //    同时把代码按原路径展开到 <store>/code/<lib>/<slug>/，给 agent 直接读。
+  //    电脑端 store 在 vault 外面（见 core/store.ts），不跟着 vault 同步
+  store!: Store;
+
   private pluginDir(): string {
     return this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
   }
 
   private cachePath(lib: string, slug: string): string {
-    return normalizePath(`${this.pluginDir()}/cache/${lib}/${slug.replace(/[\\/:]/g, "_")}.json`);
+    return this.store.join(this.store.base, "cache", lib, `${slug.replace(/[\\/:]/g, "_")}.json`);
   }
 
-  /** 组件代码目录（vault 相对路径） */
+  /** 组件代码目录（电脑端是绝对路径，手机端是 vault 相对路径） */
   codeDir(lib: string, slug: string): string {
-    return normalizePath(`${this.pluginDir()}/code/${lib}/${slug.replace(/[\\/:]/g, "_")}`);
+    return this.store.join(this.store.base, "code", lib, slug.replace(/[\\/:]/g, "_"));
   }
 
   /** vault 在磁盘上的绝对路径（桌面端），给 agent 拼绝对路径用 */
@@ -119,12 +128,9 @@ export default class UiShelfPlugin extends Plugin {
 
   async writeCache(lib: string, slug: string, item: ComponentItem): Promise<void> {
     const path = this.cachePath(lib, slug);
-    const dir = path.split("/").slice(0, -1).join("/");
-    const adapter = this.app.vault.adapter;
-    if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
     const json = JSON.stringify(item);
-    const before = (await adapter.exists(path)) ? await adapter.read(path) : null;
-    await adapter.write(path, json);
+    const before = (await this.store.exists(path)) ? await this.store.read(path) : null;
+    await this.store.write(path, json);
     this.memo.set(`${lib}/${slug}`, item);
     await this.writeCode(lib, slug, item);
     // 打开着的预览块（笔记、画廊）手上还是旧数据：内容真的变了才通知它们重新渲染
@@ -132,15 +138,9 @@ export default class UiShelfPlugin extends Plugin {
   }
 
   private async writeCode(lib: string, slug: string, item: ComponentItem): Promise<void> {
-    const adapter = this.app.vault.adapter;
     const dir = this.codeDir(lib, slug);
-    if (await adapter.exists(dir)) await adapter.rmdir(dir, true);
-    for (const f of codeFiles(item)) {
-      const path = normalizePath(`${dir}/${f.path}`);
-      const parent = path.split("/").slice(0, -1).join("/");
-      if (!(await adapter.exists(parent))) await adapter.mkdir(parent);
-      await adapter.write(path, f.code);
-    }
+    await this.store.removeDir(dir);
+    for (const f of codeFiles(item)) await this.store.write(this.store.join(dir, f.path), f.code);
   }
 
   /** 组件库 id → 预览里站内路径资源的解析地址（官网域名或来源文件的 assetBase） */
@@ -180,7 +180,7 @@ export default class UiShelfPlugin extends Plugin {
     const path = this.cachePath(lib, slug);
     let item: ComponentItem | null = null;
     try {
-      if (await this.app.vault.adapter.exists(path)) item = JSON.parse(await this.app.vault.adapter.read(path)) as ComponentItem;
+      if (await this.store.exists(path)) item = JSON.parse(await this.store.read(path)) as ComponentItem;
     } catch {
       item = null;
     }
@@ -241,7 +241,8 @@ export default class UiShelfPlugin extends Plugin {
       vaultName: this.app.vault.getName(),
       vaultPath: this.vaultBase(),
       root: pathsFor(this.data.rootFolder).root,
-      pluginDir: this.pluginDir(),
+      codeRoot: this.store.join(this.store.base, "code"),
+      codeRootAbsolute: this.store.external,
     });
   }
 

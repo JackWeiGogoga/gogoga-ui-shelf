@@ -70,7 +70,7 @@ agent（或你）可以执行的命令：`sync-all`、`sync-sources`、`sync-lat
 
 - 组件笔记在 `<目录>/components/<库>/<slug>.md`。`<!-- ui-shelf:start -->` 和 `<!-- ui-shelf:end -->` 之间的内容每次同步重写；其余内容和你打的标签都归你。
 - `catalog.md`、`catalog.json`、`Tag vocabulary.md`、`agent/SKILL.md`、`reports/last-sync.md` 每次同步重写。`UI Shelf.md` 和 `Components.base` 只在第一次创建，之后归你。
-- 免费组件的代码缓存在插件目录（`code/<库>/<slug>/`），文件路径和组件库发布的一致。
+- 免费组件的代码在电脑端缓存在 vault 外面的 `~/.gogoga/ui-shelf/<vault 名>/`（`code/<库>/<slug>/` 的文件路径和组件库发布的一致，`cache/` 是原始数据）。这是几千个小文件，放在 vault 外面就不会同步到手机、拖慢手机打开 vault。手机端仍放在插件目录。
 
 ## 开发
 
